@@ -8,8 +8,6 @@ namespace App\Services;
 
 
 use App\EntityManager;
-use App\Services\LinkResources\TvShowLinksService;
-use MongoDB\BSON\ObjectId;
 
 class TvShowService
 {
@@ -27,22 +25,14 @@ class TvShowService
     private $entityManager;
 
     /**
-     *
-     * @var TvShowLinksService
-     */
-    private $tvShowLinksService;
-
-    /**
      * TvShowService constructor.
      * @param FindService $findService
      * @param EntityManager $entityManager
-     * @param TvShowLinksService $tvShowLinksService
      */
-    public function __construct(FindService $findService, EntityManager $entityManager, TvShowLinksService $tvShowLinksService)
+    public function __construct(FindService $findService, EntityManager $entityManager)
     {
         $this->findService = $findService;
         $this->entityManager = $entityManager;
-        $this->tvShowLinksService = $tvShowLinksService;
     }
 
 
@@ -96,55 +86,6 @@ class TvShowService
         return $data;
     }
 
-    /**
-     * @param $id
-     * @param $season
-     * @param $episode
-     * @return array|\MongoDB\Driver\Cursor
-     * @throws \Exception
-     */
-    public function getEpisodeSeasonLinks($id, $season, $episode)
-    {
-        $episodes = $this->entityManager->find(["show"=> $id, "season" => $season, "episode"=> $episode], "links")->toArray();
-        if(sizeof($episodes)===0){
-            $tvshow = $this->getById($id);
-            $episodes = $this->tvShowLinksService->getSeasonEpisodeLinks($tvshow["primaryTitle"], $season, $episode);
-            foreach ($episodes as &$p){
-                $p["show"] = $id;
-                $p["season"] = $season;
-                $p["episode"] = $episode;
-            }
-            if(!empty($episodes)){
-                $this->entityManager->insertMany($episodes,'links');
-            }
-        }
-        $episodes = $this->entityManager->find(["show"=> $id, "season" => $season, "episode"=> $episode], "links")->toArray();
-        foreach ($episodes as &$e){
-            unset($e["resource"]);
-        }
-
-        return $episodes;
-
-    }
-
-    /**
-     * @param string $id
-     * @return string
-     * @throws \Exception
-     */
-    public function getLinkUrl(string $id)
-    {
-        $link = $this->entityManager->find(["_id"=> new ObjectId($id)], "links")->toArray();
-        if(sizeof($link)=== 0) return null;
-        $link = $link[0];
-        if(!isset($link["link"])){
-            $url = $this->tvShowLinksService->getLink($link["resource"]);
-            $link["link"] = $url;
-            $this->entityManager->replace($link,'links');
-        }
-
-        return $link["link"];
-    }
 
     public function upcoming()
     {
