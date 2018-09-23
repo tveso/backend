@@ -1,0 +1,24 @@
+security:
+    providers:
+        userprovider:
+          id: App\Auth\UserProvider
+    role_hierarchy:
+        ROLE_ADMIN:       ROLE_USER
+        ROLE_SUPER_ADMIN: ROLE_ADMIN
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+        login:
+            pattern: ^/api/
+            anonymous: ~
+            json_login:
+                check_path: /api/security/login
+                failure_handler: failure_handler
+    access_control:
+       - { path: ^/api/login, roles: IS_AUTHENTICATED_ANONYMOUSLY}
+       - { path: ^/api/config/, roles: IS_AUTHENTICATED_ANONYMOUSLY}
+       - { path: ^/api/security/, roles: IS_AUTHENTICATED_ANONYMOUSLY}
+#       - { path: ^/api/*, roles: ROLE_USER}
+    encoders:
+        App\Auth\User: bcrypt

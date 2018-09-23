@@ -1,0 +1,17 @@
+###> symfony/framework-bundle ###
+/.env
+/public/bundles/
+/var/
+/vendor/
+/.idea
+composer.lock
+symfony.lock
+.env
+.env.dist
+jobs.bat
+###< symfony/framework-bundle ###
+
+###> symfony/phpunit-bridge ###
+.phpunit
+/phpunit.xml
+###< symfony/phpunit-bridge ###

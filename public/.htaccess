@@ -1,0 +1,16 @@
+
+RewriteEngine On
+Header set Access-Control-Allow-Origin "http://localhost:4200"
+<Files ~ "\.yaml$">
+Order Allow,Deny
+Deny from All
+</Files>
+<Files ~ "\.log$">
+Order Allow,Deny
+Deny from All
+</Files>
+
+RewriteCond %{REQUEST_URI} !(\.css|\.js|\.png|\.jpg|\.gif|\.yaml|robots\.txt|\.log)$ [NC]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php

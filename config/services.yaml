@@ -1,0 +1,40 @@
+
+parameters:
+    locale: 'es'
+
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+    App\:
+        resource: '../src/*'
+        exclude: '../src/{DependencyInjection,Entity,Migrations,Tests,Kernel.php}'
+    updatetvshowsjob:
+        class: 'App\Jobs\UpdateTmdbJobs\UpdateTvShowsJob'
+    MongoDB\Client:
+        class: 'MongoDB\Client'
+    GuzzleHttp\Client:
+        class: 'GuzzleHttp\Client'
+    App\Controller\:
+        resource: '../src/Controller'
+        tags: ['controller.service_arguments']
+    failure_handler:
+      class: 'App\Handler\AuthenticationFailureHandler'
+    App\Auth\:
+      resource: '../src/Auth'
+    App\Auth\UserProvider:
+      class: 'App\Auth\UserProvider'
+    App\Services\TheMovieDb\TheMovieDbClient:
+        arguments:
+        - '@GuzzleHttp\Client'
+        - '%env(TMDB_API)%'
+    App\Event\:
+        resource: '../src/Event'
+    my_converter:
+          class: App\Converter\ObjectConverter
+          tags:
+              - { name: request.param_converter, priority: 0, converter: class }
+
+    # add more service definitions when explicit configuration is needed
+    # please note that last definitions always *replace* previous ones
