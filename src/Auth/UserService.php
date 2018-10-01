@@ -9,6 +9,7 @@ namespace App\Auth;
 
 use App\EntityManager;
 use App\Form\UserRegistrationForm;
+use MongoDB\BSON\ObjectId;
 use Symfony\Component\Security\Core\Encoder\PasswordEncoderInterface;
 use Symfony\Component\Security\Core\Encoder\UserPasswordEncoderInterface;
 
@@ -51,6 +52,7 @@ class UserService
         $password = $this->passwordEncoder->encodePassword($user, $user->getPassword());
         $user->setPassword($password);
         $userArr = User::toArray($user);
+        $userArr["_id"] = (new ObjectId())->__toString();
         $this->entityManager->insert($userArr, 'users');
     }
 

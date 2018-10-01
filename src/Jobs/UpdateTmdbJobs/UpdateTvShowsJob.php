@@ -60,18 +60,6 @@ class UpdateTvShowsJob
     private function formatTvshowBeforeUpdate(array $entity)
     {
         $entity['updated_at'] = (new \DateTime('now'))->format('Y-m-d');
-        if(!array_key_exists('seasons', $entity)){
-            return $entity;
-        }
-        foreach ($entity['seasons'] as $s=>$season) {
-            if(!array_key_exists('episodes', $season)){
-                continue;
-            }
-            foreach ($season['episodes'] as $e=>$episode){
-                unset($entity['seasons'][$s]['episodes'][$e]['vote_average']);
-                unset($entity['seasons'][$s]['episodes'][$e]['vote_count']);
-            }
-        }
 
         return $entity;
     }

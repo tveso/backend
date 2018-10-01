@@ -5,6 +5,7 @@ namespace App\Services;
 
 
 use App\EntityManager;
+use App\Jobs\UpdateSearchFieldJob;
 use App\Util\FindQueryBuilder;
 use MongoDB\BSON\Regex;
 class FindService
@@ -40,7 +41,10 @@ class FindService
 
     public function search(string $string, $limit = 100, $page = 1)
     {
-        $results = $this->patternSearch($string,$limit,$page);
+        $results = $this->textSearch($string, $limit, $page);
+        if(empty($results)){
+            $results = $this->patternSearch($string,$limit,$page);
+        }
         return $results;
     }
 
@@ -48,13 +52,12 @@ class FindService
 
     public function patternSearch(string $string, $limit = 100, $page = 1)
     {
-        $search = [];
         $options = [];
-        $string = $this->prepareString($string);
-        $regexBody = new Regex("$string",'im');
-        $search['$or'][] = ["stitle"=> ['$regex' => $regexBody]];
-        $options["sort"] = ["rating.numVotes" => -1];
-        $options["projection"] = ['score' => ['$meta' => "textScore"], "seasons" =>0, "credits"=>0, "videos"=> 0, "images" =>0];
+        $string = UpdateSearchFieldJob::prepareString($string);
+        $regexBody = new Regex("^$string",'im');
+        $search = ["stitle"=> ['$regex' => $regexBody]];
+        $options["sort"] = ["popularity" => -1, "rating.numVotes" => -1];
+        $options["projection"] = [ "seasons" =>0, "credits"=>0, "videos"=> 0, "images" =>0];
         $options["skip"] = $skip = ($page-1)*$limit;
         $options["limit"] = $limit;
         $collection = $this->entityManager->getCollection('movies');
@@ -62,22 +65,22 @@ class FindService
         return $collection->find($search,$options)->toArray();
     }
 
-    private function prepareString($string)
+
+
+    private function textSearch($string, $limit, $page)
     {
-        $chars = "',:#@|!¿?=)(/&%\$·`´*'-";
-        $chars = str_split($chars);
-        $replace= [["á","a"],["é","e"],["í","i"],["ó","o"],["ú","u"]];
-        foreach ($chars as $c){
-            $string = str_replace($c,"",$string);
-        }
-        foreach ($replace as $r){
-            $string = str_replace($r[0],$r[1], $string);
-        }
+        $options = [];
+        $string =  UpdateSearchFieldJob::prepareString($string);
+        $string = "\"$string\"";
+        $search = ['$text' => ['$search'=>$string]];
+        $options["sort"] = ["textScore" => -1, "rating.numVotes" => -1];
+        $options["projection"] = ['score' => ['$meta' => "textScore"], "seasons" =>0, "credits"=>0, "videos"=> 0, "images" =>0, "search_title" => 0];
+        $options["skip"] = $skip = ($page-1)*$limit;
+        $options["limit"] = $limit;
+        $collection = $this->entityManager->getCollection('movies');
 
-        return strtolower($string);
+        return $collection->find($search,$options)->toArray();
     }
-
-
 
 
 }

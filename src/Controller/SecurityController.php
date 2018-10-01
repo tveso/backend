@@ -53,6 +53,14 @@ class SecurityController extends AbstractController
     }
 
     /**
+     * @Route("/api/security/logout", name="logout")
+     */
+    public function logout()
+    {
+        return $this->okResponse();
+    }
+
+    /**
      * @Route("/api/security/islogged", name="islogged")
      * @param TokenStorageInterface $tokenStorage
      * @param AuthorizationCheckerInterface $authorizationChecker
@@ -61,6 +69,7 @@ class SecurityController extends AbstractController
     public function isLogged(TokenStorageInterface $tokenStorage, AuthorizationCheckerInterface $authorizationChecker)
     {
         if($authorizationChecker->isGranted('IS_AUTHENTICATED_FULLY')){
+
             return $this->jsonResponse(["user" => $tokenStorage->getToken()->getUser()]);
         }
         return $this->jsonResponse(["user" => null]);
@@ -76,7 +85,6 @@ class SecurityController extends AbstractController
      */
     public function register(UserRegistrationForm $user, ValidatorInterface $validator)
     {
-        EntityManager::class;
         $errors = $validator->validate($user);
         if(count($errors)>0){
 

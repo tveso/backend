@@ -121,8 +121,8 @@ class FindQueryBuilder
         $result = [];
         if(array_key_exists('duration', $this->params)){
             $duration = $this->params['duration'];
-            $regex = '/(?<symbol>[<>=]*)(?<number>[0-9]*);?/';
-            if(preg_match_all($regex,$duration, $matches)){
+            $matches = $this->quantityExpresion($duration);
+            if(!empty($matches)){
                 foreach ($matches["symbol"] as $key=>$value){
                     if($value==='') continue;
                     $operator = $this->getOperator($value);
@@ -179,9 +179,9 @@ class FindQueryBuilder
             return [];
         }
         if(array_key_exists('dateFilter', $this->params)){
-            $duration = $this->params['dateFilter'];
-            $regex = '/(?<symbol>[<>=]*)(?<number>.*);?/';
-            if(preg_match_all($regex,$duration, $matches)){
+            $dateFilter = $this->params['dateFilter'];
+            $matches = $this->quantityExpresion($dateFilter);
+            if(!empty($matches)){
                 foreach ($matches["symbol"] as $key=>$value){
                     if($value==='') continue;
                     $operator = $this->getOperator($value);
@@ -204,8 +204,8 @@ class FindQueryBuilder
         }
         if(array_key_exists('dateEpisode', $this->params)){
             $duration = $this->params['dateEpisode'];
-            $regex = '/(?<symbol>[<>=]*)(?<number>[0-9\-]*);?/';
-            if(preg_match_all($regex,$duration, $matches)){
+            $matches = $this->quantityExpresion($duration);
+            if(!empty($matches)){
                 foreach ($matches["symbol"] as $key=>$value){
                     if($value==='') continue;
                     $operator = $this->getOperator($value);
@@ -217,5 +217,15 @@ class FindQueryBuilder
         }
 
         return $result;
+    }
+
+    private function quantityExpresion(string $expr)
+    {
+        $regex = '/(?<symbol>[<>=]*)(?<number>[0-9\-]*);?/';
+        if(preg_match_all($regex,$expr, $matches)){
+            return $matches;
+        }
+
+        return [];
     }
 }

@@ -7,7 +7,12 @@
 namespace App\Services;
 
 
+use App\Auth\User;
+use App\Entity\Entity;
+use App\Entity\TvShow;
 use App\EntityManager;
+use MongoDB\BSON\ObjectId;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 class TvShowService
 {
@@ -23,16 +28,22 @@ class TvShowService
      * @var EntityManager
      */
     private $entityManager;
+    /**
+     * @var User
+     */
+    private $user;
 
     /**
      * TvShowService constructor.
      * @param FindService $findService
      * @param EntityManager $entityManager
+     * @param TokenStorageInterface $token
      */
-    public function __construct(FindService $findService, EntityManager $entityManager)
+    public function __construct(FindService $findService, EntityManager $entityManager, TokenStorageInterface $token)
     {
         $this->findService = $findService;
         $this->entityManager = $entityManager;
+        $this->user = $token->getToken()->getUser();
     }
 
 
@@ -97,6 +108,7 @@ class TvShowService
 
         return $this->findService->all($query);
     }
+
 
 
 }

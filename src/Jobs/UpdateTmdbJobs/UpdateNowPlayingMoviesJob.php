@@ -7,6 +7,7 @@ use App\EntityManager;
 use App\Services\TheMovieDb\TheMovieDbClient;
 use App\Services\TheMovieDb\TmdbMovieService;
 use MongoDB\BSON\ObjectId;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Validator\Constraints\Date;
 
 class UpdateNowPlayingMoviesJob
@@ -26,17 +27,23 @@ class UpdateNowPlayingMoviesJob
      * @var TmdbMovieService
      */
     private $tmdbMovieService;
+    /**
+     * @var LoggerInterface
+     */
+    private $logger;
 
     /**
      * UpdateNowPlayingMoviesJob constructor.
      * @param TheMovieDbClient $theMovieDbClient
      * @param EntityManager $entityManager
      */
-    public function __construct(TheMovieDbClient $theMovieDbClient, EntityManager $entityManager, TmdbMovieService $tmdbMovieService)
+    public function __construct(TheMovieDbClient $theMovieDbClient, EntityManager $entityManager,
+                                TmdbMovieService $tmdbMovieService, LoggerInterface $logger)
     {
         $this->theMovieDbClient = $theMovieDbClient;
         $this->entityManager = $entityManager;
         $this->tmdbMovieService = $tmdbMovieService;
+        $this->logger = $logger;
     }
 
     public function update()
@@ -44,10 +51,14 @@ class UpdateNowPlayingMoviesJob
         $res = $this->getIdsNowPlaying();
         $ids = $res["ids"];
         $data = $res["data"];
-        $updated = $this->updatedNotPlayingAnymore($ids);
-        $news = $this->updateNowPlaying($ids, $data);
-        echo "{$updated->getModifiedCount()} Películas quitadas de carteleras\n";
-        echo "{$news} Películas añadidas a carteleras\n";
+        try{
+            $updated = $this->updatedNotPlayingAnymore($ids);
+            $news = $this->updateNowPlaying($ids, $data);
+            echo "{$updated->getModifiedCount()} Películas quitadas de carteleras\n";
+            echo "{$news} Películas añadidas a carteleras\n";
+        } catch (\Exception $e){
+            $this->logger->error($e);
+        }
     }
 
 
@@ -92,8 +103,10 @@ class UpdateNowPlayingMoviesJob
             if(empty($find)){
                 $data = $this->tmdbMovieService->get($movie["id"]);
                 $data["_id"] = $data["imdb_id"];
+                $imdbId = $data["imdb_id"];
                 $data = $data +  ['now_playing'=> true,'updated_at'=> (new \DateTime())->format('Y-m-d')];
-                $this->entityManager->insert($data, 'movies');
+                $data = ['$set' => $data];
+                $this->entityManager->update(["_id"=> $imdbId], $data, 'movies', ['upsert'=> true]);
                 continue;
             }
             $dataUpdated = $movie + ['now_playing'=> true,'updated_at'=> (new \DateTime())->format('Y-m-d')];

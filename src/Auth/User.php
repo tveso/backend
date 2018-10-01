@@ -7,10 +7,11 @@
 namespace App\Auth;
 
 
+use App\Entity\Entity;
 use MongoDB\Model\BSONDocument;
 use Symfony\Component\Security\Core\User\UserInterface;
 
-class User implements UserInterface, \JsonSerializable
+class User extends Entity implements UserInterface, \JsonSerializable
 {
     private $username;
     private $password;
@@ -20,10 +21,11 @@ class User implements UserInterface, \JsonSerializable
     private $credentialsNonExpired;
     private $accountNonLocked;
     private $roles;
+    private $id;
 
     public function __construct(?string $username, ?string $password, array $roles = array(), bool $enabled = true,
                                 bool $accountNonExpired = true, bool $credentialsNonExpired = true,
-                                bool $accountNonLocked = true, string $email = null)
+                                bool $accountNonLocked = true, string $email = null, array $data = [])
     {
         if ('' === $username || null === $username) {
             throw new \InvalidArgumentException('The username cannot be empty.');
@@ -36,6 +38,8 @@ class User implements UserInterface, \JsonSerializable
         $this->credentialsNonExpired = $credentialsNonExpired;
         $this->accountNonLocked = $accountNonLocked;
         $this->roles = $roles;
+        $this->email = $email;
+        parent::__construct($data);
     }
 
     public static function toArray(User $user){
@@ -197,18 +201,18 @@ class User implements UserInterface, \JsonSerializable
     }
 
 
-
     /**
      * Specify data which should be serialized to JSON
      * @link http://php.net/manual/en/jsonserializable.jsonserialize.php
+     * @param array|null $vars
      * @return mixed data which can be serialized by <b>json_encode</b>,
      * which is a value of any type other than a resource.
      * @since 5.4.0
      */
-    public function jsonSerialize()
+    public function jsonSerialize(?array $vars = null)
     {
-        $forbidden = ['password', 'enabled', 'accountNonExpired','credentialsNonExpired', 'accountNonLocked'];
-        $vars = get_object_vars($this);
+        $forbidden = ['password'];
+        $vars = $vars ?? get_object_vars($this);
         $result = [];
         foreach ($vars as $key=>$value){
             if(!in_array($key, $forbidden)){
@@ -217,4 +221,22 @@ class User implements UserInterface, \JsonSerializable
         }
         return $result;
     }
+
+    /**
+     * @return mixed
+     */
+    public function getId()
+    {
+        return $this->id;
+    }
+
+    /**
+     * @param mixed $id
+     */
+    public function setId($id): void
+    {
+        $this->id = $id;
+    }
+
+
 }

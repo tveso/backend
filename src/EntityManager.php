@@ -43,6 +43,10 @@ class EntityManager
         return $element;
     }
 
+    /**
+     * @param string $id
+     * @param string $collectionName
+     */
     public function findOnebyId(string $id, string $collectionName)
     {
         $element = $this->getCollection($collectionName)->findOne(['_id'=>$id]);
@@ -68,10 +72,10 @@ class EntityManager
         return $manager->executeQuery($this->databaseName.".".$collection,$query);
     }
 
-    public function replace($value, string $collection)
+    public function replace($value, string $collection) : UpdateResult
     {
         $id = $value["_id"];
-        $this->getCollection($collection)->replaceOne(["_id"=>$id],$value,["upsert"=>true]);
+        return $this->getCollection($collection)->replaceOne(["_id"=>$id],$value,["upsert"=>true]);
     }
 
     public function update(array $query, array $value, string $collection, array $options = []) : UpdateResult
@@ -114,6 +118,11 @@ class EntityManager
     public function delete($value,string $collectionName) : DeleteResult
     {
         return $this->getCollection($collectionName)->deleteOne(["_id"=> $value["_id"]]);
+    }
+
+    public function aggregate(array $query, array $opts, string $collectionName)
+    {
+        return $this->getCollection($collectionName)->aggregate($query, $opts);
     }
 
 }

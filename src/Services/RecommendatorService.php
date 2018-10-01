@@ -192,7 +192,7 @@ class RecommendatorService
         if(is_null($show)){
             return [];
         }
-        $this->update($show);
+        //$this->update($show);
         switch ($show["type"]){
             case 'tvshow':
                 return $this->recommendTvshow($show);

@@ -8,6 +8,8 @@ namespace App\Jobs;
 
 
 use App\EntityManager;
+use MongoDB\Driver\Cursor;
+use MongoDB\Model\BSONDocument;
 
 class UpdateSearchFieldJob
 {
@@ -27,43 +29,52 @@ class UpdateSearchFieldJob
         $this->entityManager = $entityManager;
     }
 
-    public function exec(array $query = ['$stitle'=> ['$exists' => [false]]])
-    {
-        $entities = $this->entityManager->find($query,'movies');
-        foreach ($entities as $key=>$value){
-           $this->updateEntity($value);
-        }
-    }
 
     public function updateEntity(array $entity)
     {
-        if(isset($entity['primaryTitle'])){
-            $stitle = $this->prepareString($entity['primaryTitle']);
-        }
-        if(isset($entity['original_title'])){
-            $stitle = $this->prepareString($entity['original_title']);
-        }
-        if(isset($entity['original_name'])){
-            $stitle = $this->prepareString($entity['original_name']);
-        }
-        $estitle = '';
-        if(isset($entity['name'])){
-            $estitle = $this->prepareString($entity['name']);
-        }else if(isset($value['titles'])){
-            $estitle = $this->prepareString($entity['titles']['ES']);
-        }
-        $title = "$stitle\n$estitle";
-        $entity['stitle'] = $title;
-
+        $entity = $this->prepareEntity($entity);
         $this->entityManager->replace($entity,'movies');
+
         return $entity;
     }
 
-    private function prepareString($string)
+    public function prepareEntity(array $entity)
     {
-        $chars = "',:#@|!¿?=)(/&%\$·`´*'-";
+        $title = '';
+        if($entity["type"] === 'movie') {
+            $title = $entity['title'];
+            if(isset($entity['original_title']) and $entity['title']!==$entity['original_title']){
+                $secondTitle=$entity['original_title'];
+            }
+        }
+        if($entity["type"] === 'tvshow') {
+            $title = $entity['name'];
+            if(isset($entity['original_name']) and $entity['name']!==$entity['original_name']){
+                $secondTitle=$entity['original_name'];
+            }
+        }
+        $title = $this->prepareString($title);
+        $entity['search_title'] = [];
+        for($i=1; $i<=strlen($title); $i++){
+            $substr = utf8_encode(substr($title, 0, $i));
+            $entity['search_title'][] = $substr;
+        }
+        if(isset($secondTitle)){
+            $secondTitle = $this->prepareString($secondTitle);
+            for($i=1; $i<=strlen($title); $i++){
+                $substr = utf8_encode(substr($secondTitle, 0, $i));
+                $entity['search_title'][] = $substr;
+            }
+        }
+
+        return $entity;
+    }
+
+    public static function prepareString(string $string) : string
+    {
+        $chars = "',:#@|!¿?=)(/&%\$·`´*'- .";
         $chars = str_split($chars);
-        $replace= [["á","a"],["é","e"],["í","i"],["ó","o"],["ú","u"], ['ñ','n']];
+        $replace= [["á","a"],["é","e"],["í","i"],["ó","o"],["ú","u"], ['ñ','n'], ['ç','s']];
         foreach ($chars as $c){
             $string = str_replace($c,"",$string);
         }
@@ -71,6 +82,8 @@ class UpdateSearchFieldJob
             $string = str_replace($r[0],$r[1], $string);
         }
 
-        return mb_convert_encoding(strtolower($string), "UTF-8");
+
+        return strtolower($string);
     }
+
 }

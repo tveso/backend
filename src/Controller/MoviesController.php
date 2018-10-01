@@ -43,7 +43,7 @@ class MoviesController extends AbstractController
     }
 
     /**
-     * @Route("/upcoming", name="upcoming")
+     * @Route("/upcoming", name="upcoming_movies")
      */
     public function upcoming()
     {
@@ -52,21 +52,6 @@ class MoviesController extends AbstractController
         return $this->jsonResponse($data);
     }
 
-    /**
-     * @Route("/search", name="search_movies")
-     * @return \Symfony\Component\HttpFoundation\JsonResponse
-     */
-    public function search(Request $request)
-    {
-        $query = $request->query->get('query');
-        $limit = $request->query->get('limit') ?? 10;
-        $page = $request->query->get('page') ?? 1;
-        $limit = intval($limit);
-        $page = intval($page);
-        $data = $this->findService->search($query,$limit,$page);
-
-        return $this->jsonResponse($data);;
-    }
 
     /**
      * @Route("/{id}", name="getMovies")

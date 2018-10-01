@@ -7,6 +7,7 @@
 namespace App\Auth;
 
 
+use App\Entity\Entity;
 use App\EntityManager;
 use Symfony\Component\Security\Core\Exception\UnsupportedUserException;
 use Symfony\Component\Security\Core\Exception\UsernameNotFoundException;
@@ -91,9 +92,12 @@ class UserProvider implements UserProviderInterface
             throw new UsernameNotFoundException();
         }
         $user = $user->getArrayCopy();
+        $data = new Entity($user);
+        $data = $data->get('data')->getData();
         $roles = $user["roles"]->getArrayCopy();
         $userDao = new User($user["username"], $user["password"], $roles, $user['enabled'], $user['accountNonExpired'],
-            $user['credentialsNonExpired'], $user['accountNonLocked'], $user['email']);
+            $user['credentialsNonExpired'], $user['accountNonLocked'], $user['email'], $data);
+        $userDao->setId($user["_id"]);
 
         return $userDao;
     }

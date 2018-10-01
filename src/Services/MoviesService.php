@@ -43,7 +43,7 @@ class MoviesService
     public function upcoming()
     {
         $date = new \DateTime('now');
-        $query = ["limit"=> 100, "page"=> 1, "type"=>"movie", "sort" => "release_date", "status"=> "Released",
+        $query = ["limit"=> 12, "page"=> 1, "type"=>"movie", "sort" => "release_date", "status"=> "Released",
             "dateFilter"=> "<={$date->format('Y-m-d')}"];
 
         return $this->findService->all($query);
@@ -56,8 +56,6 @@ class MoviesService
 
         return $result;
     }
-
-
 
 
 

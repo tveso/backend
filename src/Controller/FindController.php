@@ -39,6 +39,22 @@ class FindController extends AbstractController
         $this->recommenatorService = $recommenatorService;
     }
 
+    /**
+     * @Route("/search", name="search")
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     */
+    public function search(Request $request)
+    {
+        $query = $request->query->get('query');
+        $limit = $request->query->get('limit') ?? 10;
+        $page = $request->query->get('page') ?? 1;
+        $limit = intval($limit);
+        $page = intval($page);
+        $data = $this->findService->search($query,$limit,$page);
+
+        return $this->jsonResponse($data);
+    }
+
 
     /**
      * @param string $id

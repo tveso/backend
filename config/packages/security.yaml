@@ -14,11 +14,14 @@ security:
             anonymous: ~
             json_login:
                 check_path: /api/security/login
-                failure_handler: failure_handler
+            logout:
+                path: /api/security/logout
+                success_handler: App\Handler\LogoutHandler
+
     access_control:
        - { path: ^/api/login, roles: IS_AUTHENTICATED_ANONYMOUSLY}
        - { path: ^/api/config/, roles: IS_AUTHENTICATED_ANONYMOUSLY}
        - { path: ^/api/security/, roles: IS_AUTHENTICATED_ANONYMOUSLY}
-#       - { path: ^/api/*, roles: ROLE_USER}
+       - { path: ^/api/*, roles: ROLE_USER}
     encoders:
         App\Auth\User: bcrypt

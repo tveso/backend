@@ -19,8 +19,6 @@ services:
     App\Controller\:
         resource: '../src/Controller'
         tags: ['controller.service_arguments']
-    failure_handler:
-      class: 'App\Handler\AuthenticationFailureHandler'
     App\Auth\:
       resource: '../src/Auth'
     App\Auth\UserProvider:
@@ -35,6 +33,10 @@ services:
           class: App\Converter\ObjectConverter
           tags:
               - { name: request.param_converter, priority: 0, converter: class }
+    entitiy_converter:
+          class: App\Converter\EntityConverter
+          tags:
+            - {name: request.entity_converter, priorioty: 0, converter: entityConverter}
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

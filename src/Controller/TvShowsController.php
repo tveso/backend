@@ -7,8 +7,11 @@
 namespace App\Controller;
 
 
+use App\Entity\Show;
+use App\Services\FollowService;
 use App\Services\TvShowService;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Cache;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -23,14 +26,19 @@ class TvShowsController extends AbstractController
      * @var TvShowService
      */
     private $tvshowService;
+    /**
+     * @var FollowService
+     */
+    private $followService;
 
     /**
      * TvShowController constructor.
      * @param TvShowService $tvshowService
      */
-    public function __construct(TvShowService $tvshowService)
+    public function __construct(TvShowService $tvshowService, FollowService $followService)
     {
         $this->tvshowService = $tvshowService;
+        $this->followService = $followService;
     }
 
 
@@ -69,25 +77,18 @@ class TvShowsController extends AbstractController
     }
 
     /**
-     * @Route("/{id}/links", name="links")
-     * @param string $id
+     * @Route("/{id}/follow", name="followtvshow")
      * @param Request $request
-     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @param string $id
+     * @return object|\Symfony\Component\HttpFoundation\JsonResponse
      * @throws \Exception
      */
-    public function getEpisodeLinks(string $id, Request $request)
+    public function followTvshow(Request $request, string $id)
     {
-        $season = $request->query->get('season');
-        $episode =  $request->query->get('episode');
-        if(is_null($season) or is_null($episode)){
-            return $this->error(404, "Not found");
-        }
-        $data = $this->tvshowService->getEpisodeSeasonLinks($id,$season,$episode);
-
-        return $this->jsonResponse($data);
+        $mode = $request->query->get('mode');
+        $this->followService->followTvshow($id, $mode);
+        return $this->okResponse();
     }
-
-
 
 
 }

@@ -7,36 +7,43 @@
 namespace App\Converter;
 
 
+use App\Entity\Entity;
+use App\Entity\Show;
+use App\EntityManager;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
-use Sensio\Bundle\FrameworkExtraBundle\Request\ParamConverter\DoctrineParamConverter;
 use Sensio\Bundle\FrameworkExtraBundle\Request\ParamConverter\ParamConverterInterface;
 use Symfony\Component\HttpFoundation\Request;
 
-class ObjectConverter implements ParamConverterInterface
+class EntityConverter implements ParamConverterInterface
 {
+
+    /**
+     * @var EntityManager
+     */
+    private $entityManager;
+
+    public function __construct(EntityManager $entityManager)
+    {
+
+        $this->entityManager = $entityManager;
+    }
 
     /**
      * Stores the object in the request.
      *
+     * @param Request $request
      * @param ParamConverter $configuration Contains the name, class and options of the object
      *
      * @return bool True if the object has been successfully set, else false
-     * @throws \Exception
      */
     public function apply(Request $request, ParamConverter $configuration)
     {
-        $class = $configuration->getClass();
         try{
-            $object = new $class();
-            foreach ($request->request->all() as $key=>$param){
-                $method = ucfirst($key);
-                $method = 'set'.$method;
-                if(method_exists($object, $method)){
-                    $object->{$method}($param);
-                }
-            }
-            $request->attributes->set($configuration->getName(),$object);
-
+            $id = $request->attributes->get($configuration->getName());
+            $data = $this->entityManager->findOnebyId($id, 'movies');
+            $class = $configuration->getClass();
+            $entity = new $class($data->getArrayCopy());
+            $request->attributes->set('id', $entity);
             return true;
         } catch (\Exception $e){
             return false;
@@ -51,6 +58,6 @@ class ObjectConverter implements ParamConverterInterface
      */
     public function supports(ParamConverter $configuration)
     {
-        return $configuration->getConverter() === "class" and  $configuration->getClass()!== null;
+        return $configuration->getConverter() === "entityConverter" || $configuration->getClass() instanceof Entity;
     }
 }
