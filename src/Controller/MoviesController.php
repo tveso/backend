@@ -2,6 +2,7 @@
 
 namespace App\Controller;
 
+use App\Services\CommentsService;
 use App\Services\FindService;
 use App\Services\MoviesService;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Cache;
@@ -21,16 +22,22 @@ class MoviesController extends AbstractController
      * @var FindService
      */
     private $findService;
+    /**
+     * @var CommentsService
+     */
+    private $commentsService;
 
     /**
      * MoviesController constructor.
      * @param MoviesService $moviesService
      * @param FindService $findService
+     * @param CommentsService $commentsService
      */
-    public function __construct(MoviesService $moviesService, FindService $findService)
+    public function __construct(MoviesService $moviesService, FindService $findService, CommentsService $commentsService)
     {
         $this->moviesService = $moviesService;
         $this->findService = $findService;
+        $this->commentsService = $commentsService;
     }
 
 
@@ -61,6 +68,7 @@ class MoviesController extends AbstractController
     public function getMovie(string $id)
     {
         $data = $this->moviesService->getById($id);
+        $data['comments'] = $this->commentsService->getAll($data["_id"]);
 
         return $this->jsonResponse($data);
     }

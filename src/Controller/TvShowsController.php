@@ -8,6 +8,7 @@ namespace App\Controller;
 
 
 use App\Entity\Show;
+use App\Services\CommentsService;
 use App\Services\FollowService;
 use App\Services\TvShowService;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Cache;
@@ -32,13 +33,19 @@ class TvShowsController extends AbstractController
     private $followService;
 
     /**
+     * @var CommentsService
+     */
+    private $commentsService;
+
+    /**
      * TvShowController constructor.
      * @param TvShowService $tvshowService
      */
-    public function __construct(TvShowService $tvshowService, FollowService $followService)
+    public function __construct(TvShowService $tvshowService, FollowService $followService, CommentsService $commentsService)
     {
         $this->tvshowService = $tvshowService;
         $this->followService = $followService;
+        $this->commentsService = $commentsService;
     }
 
 
@@ -58,6 +65,7 @@ class TvShowsController extends AbstractController
     public function get(string $id)
     {
         $data = $this->tvshowService->getById($id);
+        $data['comments'] = $this->commentsService->getAll($data["_id"]);
 
         return $this->jsonResponse($data);
     }

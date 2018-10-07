@@ -8,12 +8,17 @@ services:
         autoconfigure: true
         public: false
     App\:
-        resource: '../src/*'
+        resource: '../src/**'
         exclude: '../src/{DependencyInjection,Entity,Migrations,Tests,Kernel.php}'
     updatetvshowsjob:
         class: 'App\Jobs\UpdateTmdbJobs\UpdateTvShowsJob'
+    entitymanager:
+        class: App\EntityManager
+        public: true
     MongoDB\Client:
         class: 'MongoDB\Client'
+        arguments:
+        - '%env(MONGO_URI)%'
     GuzzleHttp\Client:
         class: 'GuzzleHttp\Client'
     App\Controller\:

@@ -8,13 +8,15 @@ namespace App\Services;
 
 
 use App\Auth\User;
+use App\Auth\UserService;
 use App\Entity\Entity;
 use App\Entity\TvShow;
 use App\EntityManager;
+use App\Util\FindQueryBuilder;
 use MongoDB\BSON\ObjectId;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
-class TvShowService
+class TvShowService extends AbstractShowService
 {
 
 
@@ -37,13 +39,13 @@ class TvShowService
      * TvShowService constructor.
      * @param FindService $findService
      * @param EntityManager $entityManager
-     * @param TokenStorageInterface $token
+     * @param UserService $userService
      */
-    public function __construct(FindService $findService, EntityManager $entityManager, TokenStorageInterface $token)
+    public function __construct(FindService $findService, EntityManager $entityManager, UserService $userService)
     {
         $this->findService = $findService;
         $this->entityManager = $entityManager;
-        $this->user = $token->getToken()->getUser();
+        $this->user = $userService->getUser();
     }
 
 
@@ -104,8 +106,9 @@ class TvShowService
         $numDaysMonth = cal_days_in_month(CAL_GREGORIAN, intval($date->format('m')),
             intval($date->format('Y')));
         $query = ["limit"=> 200, "page"=> 1, "type"=>"tvshow", "sort" => "release_date",
-            "dateEpisode"=> ">={$date->format("Y-m-1")};<={$date->format("Y-m-$numDaysMonth")}"];
-
+            "dateEpisode"=> ">={$date->format("Y-m-01")};<={$date->format("Y-m-$numDaysMonth")}"];
+        $query['pipelines'][]['$project'] = FindQueryBuilder::getSimpleProject();
+        $query['pipelines'][] = $this->addUserRatingPipeLine($this->user->getId());
         return $this->findService->all($query);
     }
 

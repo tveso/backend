@@ -67,7 +67,6 @@ class UpdateTvShowsJob
     public function updateByTMdbDates(?string $startDate, ?string $endDate)
     {
         $changes = $this->changes($startDate, $endDate);
-
         foreach ($changes as $key=>$tvshow){
             $id = $tvshow["id"];
             try{
@@ -75,7 +74,6 @@ class UpdateTvShowsJob
             } catch (\Exception $e){
                 continue;
             }
-
             $imdb_id = $tvshowDetails["external_ids"]["imdb_id"] ?? null;
             if(is_null($imdb_id)) {
                 continue;
@@ -132,13 +130,14 @@ class UpdateTvShowsJob
             $request = json_decode($request, 1);
             $totalPages = $request["total_pages"];
             echo "$page Pagina de $totalPages\n";
+            $filter = array_filter($request['results'], function($a){
+                return $a['adult'] !== true;
+            });
             $page = $page+1;
-            $result = $request + array_filter($request['results'], function($a){
-                    return $a['adult'] === false;
-                });
+            $result = array_merge($result, $filter);
         }
 
-        return $result['results'];
+        return $result;
     }
 
 

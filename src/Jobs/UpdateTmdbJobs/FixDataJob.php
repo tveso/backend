@@ -81,27 +81,12 @@ class FixDataJob
         $this->updateSearchFieldJob->updateEntity($resource);
     }
 
-    public function missingIds(array $query = ['type'=> 'movie'])
+    public function missingIds()
     {
-        $opts = ['sort'=> ['id' => -1]];
-        $type = $query['type'];
-        $results = $this->entityManager->find($query, 'movies', $opts);
-        $lastId = null;
-        foreach ($results as $result) {
-            if(is_null($lastId)) {
-                $lastId = $result["id"];
-                continue;
-            }
-            $currId = $result['id'];
-            $difference = $lastId-$currId;
-            if($difference>1) {
-                for($i=1;$i<$difference;$i++) {
-                    $sum = $currId+$i;
-                    $this->findAndInsert($sum, $type);
-                }
-            }
-            $lastId = $currId;
-            sleep(1);
+        $results = $this->entityManager->find([], "missingIds");
+        foreach ($results as $result){
+            $this->findAndInsert($result["id"], $result["type"]);
+            $this->entityManager->delete(["_id"=>$result["_id"]],'missingIds');
         }
     }
 
@@ -146,10 +131,7 @@ class FixDataJob
             $resource["type"] = $type;
             $this->insert($resource);
         } catch (\Exception $e){
-            if($e->getCode()=== 404) {
-                return;
-            }
-            echo $e->getMessage()."\n";
+            return;
         }
     }
 

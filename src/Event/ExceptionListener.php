@@ -12,7 +12,9 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Event\GetResponseForExceptionEvent;
+use Symfony\Component\Security\Core\Exception\AccessDeniedException;
 use Symfony\Component\Security\Core\Exception\InsufficientAuthenticationException;
+use Symfony\Component\Validator\Exception\ValidatorException;
 
 class ExceptionListener implements EventSubscriberInterface
 {
@@ -21,6 +23,14 @@ class ExceptionListener implements EventSubscriberInterface
      * @var LoggerInterface
      */
     private $logger;
+
+    private $exceptionsMessages = [
+        InsufficientAuthenticationException::class => ["message"=>"You don't have access to this resource.", "code" => 403],
+        ValidatorException::class => ["message" => "Error in the sended parameters", "code" => 400],
+        \InvalidArgumentException::class => ["message" => "Error in the sended parameters", "code" => 400],
+        AccessDeniedException::class => ["message"=>"You don't have access to this resource.", "code" => 403],
+        'default' => ["message" => "There was an error trying to process the request", "code" => 500]
+    ];
 
     public function __construct(LoggerInterface $logger)
     {
@@ -31,12 +41,11 @@ class ExceptionListener implements EventSubscriberInterface
     {
         $exception = $event->getException();
         $this->logger->alert($exception->getMessage());
-        $message = ["error"=> 500, "message" => "There was an error trying to process the request"];
-        $response = new JsonResponse(json_encode($message), 500,[], true);
-        if($exception instanceof InsufficientAuthenticationException){
-            $message = ["error"=> 403, "message" => "You don't have access to this resource."];
-            $response = new JsonResponse(json_encode($message), 403, [], true);
-        }
+        $messageCode = $this->getMesage($exception);
+        $message = $messageCode["message"];
+        $code = $messageCode["code"];
+        $message = ["message" => $message, "code"=> $code];
+        $response = new JsonResponse(json_encode($message), $code, [], true);
         $response->setMaxAge('3600');
 
         $event->setResponse($response);
@@ -47,5 +56,14 @@ class ExceptionListener implements EventSubscriberInterface
         return array(
             'kernel.exception' => 'onKernelException'
         );
+    }
+
+    private function getMesage(\Exception $exception)
+    {
+        if(isset($this->exceptionsMessages[get_class($exception)])){
+            return $this->exceptionsMessages[get_class($exception)];
+        }
+
+        return $this->exceptionsMessages["default"];
     }
 }

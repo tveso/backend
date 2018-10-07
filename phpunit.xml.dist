@@ -13,6 +13,9 @@
         <env name="APP_ENV" value="test" />
         <env name="APP_DEBUG" value="1" />
         <env name="APP_SECRET" value="s$cretf0rt3st" />
+        <env name="MONGO_DB" value="mymoviedb"/>
+        <env name="MONGO_URI" value="mongodb://localhost"/>
+        <env name="TMDB_API" value="d00cac0c702e42ffc785a1c8cbca6bae"/>
         <env name="SHELL_VERBOSITY" value="-1" />
         <!-- define your env variables for the test env here -->
 

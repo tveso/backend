@@ -13,6 +13,7 @@
         "sensio/framework-extra-bundle": "^5.2",
         "symfony/console": "*",
         "symfony/debug": "*",
+        "symfony/expression-language": "*",
         "symfony/flex": "^1.1",
         "symfony/framework-bundle": "*",
         "symfony/maker-bundle": "^1.7",
@@ -24,6 +25,8 @@
         "symfony/yaml": "*"
     },
     "require-dev": {
+        "symfony/browser-kit": "*",
+        "symfony/css-selector": "*",
         "symfony/dotenv": "*",
         "symfony/phpunit-bridge": "*",
         "symfony/profiler-pack": "^1.0"

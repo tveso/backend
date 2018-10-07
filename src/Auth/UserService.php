@@ -10,8 +10,10 @@ namespace App\Auth;
 use App\EntityManager;
 use App\Form\UserRegistrationForm;
 use MongoDB\BSON\ObjectId;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Encoder\PasswordEncoderInterface;
 use Symfony\Component\Security\Core\Encoder\UserPasswordEncoderInterface;
+
 
 class UserService
 {
@@ -24,16 +26,29 @@ class UserService
      * @var PasswordEncoderInterface
      */
     private $passwordEncoder;
+    /**
+     * @var User|string
+     */
+    private $user;
+    /**
+     * @var UserService
+     */
+    private $userService;
 
     /**
      * UserService constructor.
      * @param EntityManager $entityManager
      * @param UserPasswordEncoderInterface $passwordEncoder
+     * @param UserService $userService
      */
-    public function __construct(EntityManager $entityManager, UserPasswordEncoderInterface $passwordEncoder)
+    public function __construct(EntityManager $entityManager,
+                                UserPasswordEncoderInterface $passwordEncoder,
+                                UserService $userService)
     {
         $this->entityManager = $entityManager;
         $this->passwordEncoder = $passwordEncoder;
+        $this->userService = $userService;
+        $this->user = $userService->getUser();
     }
 
     /**
@@ -67,5 +82,10 @@ class UserService
             return false;
         }
         return true;
+    }
+
+    public function getUser()
+    {
+        return $this->user;
     }
 }

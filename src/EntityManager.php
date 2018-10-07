@@ -46,8 +46,9 @@ class EntityManager
     /**
      * @param string $id
      * @param string $collectionName
+     * @return array|null|object
      */
-    public function findOnebyId(string $id, string $collectionName)
+    public function findOnebyId($id, string $collectionName)
     {
         $element = $this->getCollection($collectionName)->findOne(['_id'=>$id]);
 

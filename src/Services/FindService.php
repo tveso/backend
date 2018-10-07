@@ -4,37 +4,58 @@
 namespace App\Services;
 
 
+use App\Auth\UserService;
 use App\EntityManager;
 use App\Jobs\UpdateSearchFieldJob;
 use App\Util\FindQueryBuilder;
 use MongoDB\BSON\Regex;
-class FindService
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+
+
+class FindService extends AbstractShowService
 {
 
     /** @Inject()
      * @var EntityManager
      */
     private $entityManager;
+    /**
+     * @var \App\Auth\User|string
+     */
+    private $user;
+    /**
+     * @var UserService
+     */
+    private $userService;
 
     /**
      * FindService constructor.
      * @param EntityManager $entityManager
+     * @param UserService $userService
      */
-    public function __construct(EntityManager $entityManager)
+    public function __construct(EntityManager $entityManager, UserService $userService)
     {
         $this->entityManager = $entityManager;
+        $this->user = $userService->getUser();
+        $this->userService = $userService;
+    }
+
+    public function filter(array $opts = [])
+    {
+        $opts['pipelines'][]['$project'] = FindQueryBuilder::getSimpleProject();
+        $opts['pipelines'][] = $this->addUserRatingPipeLine($this->user->getId());
+
+        return  $this->all($opts);
     }
 
 
     public function all(array $opts = [])
     {
         $qb = new FindQueryBuilder($opts);
-        $params = $qb->build();
-        $search = $params['query'];
-        $options = $params['options'];
+        $pipeline = $qb->build();
 
         $collection = $this->entityManager->getCollection('movies');
-        $searched = $collection->find($search,$options)->toArray();
+        $searched = iterator_to_array($collection->aggregate($pipeline));
 
         return  $searched;
     }
@@ -57,13 +78,14 @@ class FindService
         $regexBody = new Regex("^$string",'im');
         $search = ["stitle"=> ['$regex' => $regexBody]];
         $options["sort"] = ["popularity" => -1, "rating.numVotes" => -1];
-        $options["projection"] = [ "seasons" =>0, "credits"=>0, "videos"=> 0, "images" =>0];
+        $options["pipelines"]['$project'] = FindQueryBuilder::getSimpleProject();
         $options["skip"] = $skip = ($page-1)*$limit;
         $options["limit"] = $limit;
         $collection = $this->entityManager->getCollection('movies');
 
         return $collection->find($search,$options)->toArray();
     }
+
 
 
 
@@ -74,7 +96,7 @@ class FindService
         $string = "\"$string\"";
         $search = ['$text' => ['$search'=>$string]];
         $options["sort"] = ["textScore" => -1, "rating.numVotes" => -1];
-        $options["projection"] = ['score' => ['$meta' => "textScore"], "seasons" =>0, "credits"=>0, "videos"=> 0, "images" =>0, "search_title" => 0];
+        $options["projection"] = ['score' => ['$meta' => "textScore"]] + FindQueryBuilder::getSimpleProject();
         $options["skip"] = $skip = ($page-1)*$limit;
         $options["limit"] = $limit;
         $collection = $this->entityManager->getCollection('movies');

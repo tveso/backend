@@ -58,7 +58,7 @@ class UpdateMoviesJob
     public function updateByTMdbDates(?string $startDate, ?string $endDate)
     {
         $changes = $this->changes($startDate, $endDate);
-
+        var_dump(sizeof($changes));
         foreach ($changes as $key=>$movie){
             $id = $movie["id"];
             try{
@@ -98,14 +98,14 @@ class UpdateMoviesJob
             $request = $this->themoviedb->request('movie/changes', $params);
             $request = json_decode($request, 1);
             $totalPages = $request["total_pages"];
-            echo "$page Pagina de $totalPages\n";
+            echo "$page Pagina   de $totalPages\n";
             $page = $page+1;
-            $result = $request + array_filter($request['results'], function($a){
+            $result =array_merge($result, array_filter($request['results'], function($a){
                     return $a['adult'] === false;
-                });
+                }));
         }
 
-        return $result['results'];
+        return $result;
     }
 
     public function getLatestMovies()

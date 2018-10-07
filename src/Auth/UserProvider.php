@@ -54,10 +54,9 @@ class UserProvider implements UserProviderInterface
      * object can just be merged into some internal array of users / identity
      * map.
      *
+     * @param UserInterface $user
      * @return UserInterface
      *
-     * @throws UnsupportedUserException  if the user is not supported
-     * @throws UsernameNotFoundException if the user is not found
      */
     public function refreshUser(UserInterface $user)
     {

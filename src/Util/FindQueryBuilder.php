@@ -13,6 +13,7 @@ class FindQueryBuilder
 
 
     private $params;
+    private $pipeline;
 
     public function __construct(array $params)
     {
@@ -21,30 +22,30 @@ class FindQueryBuilder
 
     public function build()
     {
-        $options = $this->buildOptions();
         $query = [];
         $query = $query + $this->getGenres() + $this->getMaxSeasons() + $this->getYear() +$this->getMinMaxYear() +
             $this->getFamous() + $this->getDuration() + $this->getType()+$this->getStatus()+$this->getDateFilter()+
         $this->getDateEpisode();
+        $this->pipeline = [['$match' => $query]];
+        $this->buildOptions();
 
-        return ['query'=> $query, 'options' => $options];
+        return $this->pipeline;
     }
 
     private function buildOptions()
     {
-        $options = [];
         $page = intval($this->params["page"] ?? 1);
         $page = ($page>0) ? $page : 1;
         $limit = intval($this->params["limit"] ?? 30);
         $sortType =  $this->params["sort"] ?? 'popularity';
-        $options["sort"] = [$sortType => -1];
-        $options["skip"] = ($page-1)*$limit;
-        $options["limit"] = $limit;
-        $options["projection"] = $this->params["projection"] ?? ["seasons" =>0, "credits"=>0, "videos"=> 0, "images" =>0];
-
-
-        return $options;
-
+        $pipelines = $this->params['pipelines'] ?? [];
+        $this->pipeline[]['$sort'] = [$sortType => -1];
+        $this->pipeline[]['$skip'] = ($page-1)*$limit;
+        $this->pipeline[]['$limit'] = $limit;
+        if(!empty($pipelines)){
+            $this->pipeline = array_merge($this->pipeline,$pipelines);
+            var_dump($this->pipeline);
+        }
     }
 
     private function getGenres()
@@ -227,5 +228,11 @@ class FindQueryBuilder
         }
 
         return [];
+    }
+
+    public static function getSimpleProject()
+    {
+        return ["title"=>1, "name"=>1, "original_title"=> 1,"original_name"=>1, "poster_path"=>1,
+            "backdrop_path"=>1, "ratings"=>1, "vote_average"=>1, "vote_count"=> 1, 'type' => 1, 'userRate' => 1];
     }
 }

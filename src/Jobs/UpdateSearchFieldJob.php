@@ -29,6 +29,13 @@ class UpdateSearchFieldJob
         $this->entityManager = $entityManager;
     }
 
+    public function updateSearchFieldByLanguages(array $langs = [])
+    {
+        $query = $this->entityManager->find([],'movies');
+        foreach ($query as $value){
+            $this->updateEntity($value->getArrayCopy());
+        }
+    }
 
     public function updateEntity(array $entity)
     {
@@ -72,6 +79,7 @@ class UpdateSearchFieldJob
 
     public static function prepareString(string $string) : string
     {
+        $string =strtolower($string);
         $chars = "',:#@|!¿?=)(/&%\$·`´*'- .";
         $chars = str_split($chars);
         $replace= [["á","a"],["é","e"],["í","i"],["ó","o"],["ú","u"], ['ñ','n'], ['ç','s']];
@@ -83,7 +91,7 @@ class UpdateSearchFieldJob
         }
 
 
-        return strtolower($string);
+        return $string;
     }
 
 }

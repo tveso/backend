@@ -7,6 +7,8 @@
 namespace App\Services;
 
 
+use App\Auth\User;
+use App\Auth\UserService;
 use App\Entity\Movie;
 use App\Entity\TvShow;
 use App\EntityManager;
@@ -23,22 +25,27 @@ class FollowService
      */
     private $entityManager;
     /**
-     * @var object|string
+     * @var User|string
      */
     private $user;
+    /**
+     * @var UserService
+     */
+    private $userService;
 
 
     /**
      * TvShowService constructor.
      * @param FindService $findService
      * @param EntityManager $entityManager
-     * @param TokenStorageInterface $token
+     * @param UserService $userService
      */
-    public function __construct(FindService $findService, EntityManager $entityManager, TokenStorageInterface $token)
+    public function __construct(FindService $findService, EntityManager $entityManager, UserService $userService)
     {
         $this->findService = $findService;
         $this->entityManager = $entityManager;
-        $this->user = $token->getToken()->getUser();
+        $this->user = $userService->getUser();
+        $this->userService = $userService;
     }
 
     /**

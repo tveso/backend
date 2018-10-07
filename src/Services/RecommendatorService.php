@@ -7,6 +7,7 @@
 namespace App\Services;
 
 
+use App\Auth\UserService;
 use App\EntityManager;
 use App\Jobs\UpdateTmdbJobs\UpdateMoviesJob;
 use App\Jobs\UpdateTmdbJobs\UpdateTvShowsJob;
@@ -26,18 +27,32 @@ class RecommendatorService
      * @var UpdateTvShowsJob
      */
     private $updateTvShowsJob;
+    /**
+     * @var UserService
+     */
+    private $userService;
+    /**
+     * @var \App\Auth\User|string
+     */
+    private $user;
 
     /**
      * RecommendatorService constructor.
      * @param EntityManager $entityManager
      * @param UpdateMoviesJob $updateMoviesJob
      * @param UpdateTvShowsJob $updateTvShowsJob
+     * @param UserService $userService
      */
-    public function __construct(EntityManager $entityManager, UpdateMoviesJob $updateMoviesJob, UpdateTvShowsJob $updateTvShowsJob)
+    public function __construct(EntityManager $entityManager,
+                                UpdateMoviesJob $updateMoviesJob,
+                                UpdateTvShowsJob $updateTvShowsJob,
+                                UserService $userService)
     {
         $this->entityManager = $entityManager;
         $this->updateMoviesJob = $updateMoviesJob;
         $this->updateTvShowsJob = $updateTvShowsJob;
+        $this->userService = $userService;
+        $this->user = $userService->getUser();
     }
 
 
@@ -192,39 +207,16 @@ class RecommendatorService
         if(is_null($show)){
             return [];
         }
-        //$this->update($show);
+
         switch ($show["type"]){
             case 'tvshow':
                 return $this->recommendTvshow($show);
             case 'movie':
                 return $this->recommendMovies($show);
         }
+
+        return [];
     }
 
-    private function updateShow(string $id)
-    {
-        $details = $this->updateTvShowsJob->getTvshowDetails($id);
-        $this->updateTvShowsJob->store($details, $id);
-    }
 
-    private function updateMovie($id)
-    {
-        $details = $this->updateMoviesJob->getMovieDetails($id);
-        $this->updateMoviesJob->store($details, $id);
-    }
-
-    private function update($show)
-    {
-        if(isset($show["id"])){
-            return null;
-        }
-        switch ($show["type"]){
-            case 'tvshow':
-                $this->updateShow($show["_id"]);
-                break;
-            case 'movie':
-                $this->updateMovie($show["_id"]);
-                break;
-        }
-    }
 }
