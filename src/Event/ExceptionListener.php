@@ -41,12 +41,10 @@ class ExceptionListener implements EventSubscriberInterface
     {
         $exception = $event->getException();
         $this->logger->alert($exception->getMessage());
-        $messageCode = $this->getMesage($exception);
-        $message = $messageCode["message"];
-        $code = $messageCode["code"];
-        $message = ["message" => $message, "code"=> $code];
-        $response = new JsonResponse(json_encode($message), $code, [], true);
-        $response->setMaxAge('3600');
+        $data = $this->getMesage($exception) ;
+        $response = new JsonResponse(json_encode($data), $data["code"], [], true);
+        $response->setMaxAge(0);
+        $response->setEtag(md5($data['message']));
 
         $event->setResponse($response);
     }

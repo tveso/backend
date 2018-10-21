@@ -8,10 +8,10 @@ namespace App;
 
 
 
+use MongoDB\BSON\ObjectId;
 use MongoDB\DeleteResult;
 use MongoDB\Driver\Cursor;
 use MongoDB\Driver\Query;
-use MongoDB\Model\BSONDocument;
 use MongoDB\UpdateResult;
 
 class EntityManager
@@ -27,6 +27,13 @@ class EntityManager
         $this->client = $client;
         $this->datasbase = $client->{$databaseName};
         $this->databaseName = $databaseName;
+    }
+
+    public function setDatabaseName(string $name)
+    {
+        $this->databaseName = $name;
+
+        return $this;
     }
 
     /**
@@ -75,6 +82,9 @@ class EntityManager
 
     public function replace($value, string $collection) : UpdateResult
     {
+        if(!isset($value["_id"])) {
+            $value["_id"] = new ObjectId();
+        }
         $id = $value["_id"];
         return $this->getCollection($collection)->replaceOne(["_id"=>$id],$value,["upsert"=>true]);
     }
@@ -104,7 +114,13 @@ class EntityManager
         return $this->getCollection($collection)->insertMany($documents);
     }
 
-    public function findOneBy(array $query, string $collectionName, array $opts = []) : ?BSONDocument
+    /**
+     * @param array $query
+     * @param string $collectionName
+     * @param array $opts
+     * @return array|null|object
+     */
+    public function findOneBy(array $query, string $collectionName, array $opts = [])
     {
         $element = $this->getCollection($collectionName)->findOne($query, $opts);
 
@@ -118,7 +134,7 @@ class EntityManager
      */
     public function delete($value,string $collectionName) : DeleteResult
     {
-        return $this->getCollection($collectionName)->deleteOne(["_id"=> $value["_id"]]);
+        return $this->getCollection($collectionName)->deleteMany($value);
     }
 
     public function aggregate(array $query, array $opts, string $collectionName)

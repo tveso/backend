@@ -49,6 +49,7 @@ class GetLatestMoviesCommand extends Command
         try{
             $this->updateMoviesJob->getLatestMovies();
         } catch (\Exception $e){
+            echo $e->getMessage()."\n";
             $this->logger->error($e->getMessage());
         }
 

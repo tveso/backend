@@ -15,6 +15,20 @@ services:
     entitymanager:
         class: App\EntityManager
         public: true
+    MongoDB\Driver\Manager:
+        class: MongoDB\Driver\Manager
+        arguments:
+        - '%env(MONGO_URI)%'
+    MongoDB\Collection:
+        class: MongoDB\Collection
+        arguments:
+        - '@MongoDB\Driver\Manager'
+        - 'mymoviedb'
+        - 'app_cache'
+    Doctrine\Common\Cache\MongoDBCache:
+        class:  Doctrine\Common\Cache\MongoDBCache
+        arguments:
+        - '@MongoDB\Collection'
     MongoDB\Client:
         class: 'MongoDB\Client'
         arguments:
@@ -42,6 +56,11 @@ services:
           class: App\Converter\EntityConverter
           tags:
             - {name: request.entity_converter, priorioty: 0, converter: entityConverter}
+    Abraham\TwitterOAuth\TwitterOAuth:
+      class: 'Abraham\TwitterOAuth\TwitterOAuth'
+      arguments:
+      - '%env(TWITTER_CONSUMER_KEY)%'
+      - '%env(TWITTER_CONSUMER_SECRET)%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

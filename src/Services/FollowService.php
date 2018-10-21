@@ -12,6 +12,7 @@ use App\Auth\UserService;
 use App\Entity\Movie;
 use App\Entity\TvShow;
 use App\EntityManager;
+use MongoDB\BSON\ObjectId;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 class FollowService
@@ -65,13 +66,9 @@ class FollowService
             $this->checkValidMode($mode, TvShow::FOLLOW_MODES);
         }
         $mode = strtolower($mode);
-        $userId = $this->user->getId();
-        $userFollowModes = $this->user->get("{$type}s")->get('following');
-        $values = $this->updateShowFollowState($userFollowModes->getData(), $id, $mode);
-        $updates = $this->entityManager
-            ->update(["_id"=> $userId], ['$set' => ["data.{$type}s.following" => $values]], 'users');
+        $values = $this->updateShowFollowState($id, $mode);
 
-        return $updates->getModifiedCount()>0;
+        return $values;
     }
 
 
@@ -109,16 +106,25 @@ class FollowService
         return $entities[0]['type'];
     }
 
-    private function updateShowFollowState(array $shows, string $id, string $mode)
+    private function updateShowFollowState(string $id, string $mode)
     {
+        $data = $this->entityManager->findOneBy(['user'=> $this->user->getId(), 'show' => $id], 'follows');
         if($mode === 'cancel') {
-            unset($shows[$id]);
-
-            return $shows;
+            if(is_null($data)) {
+                return 0;
+            }
+            return $this->entityManager->delete(["_id"=> $data["_id"]],'follows')->getDeletedCount();
         }
-        $shows[$id] = $mode;
+        $data["updated_at"] = (new \DateTime())->getTimestamp();
+        $data["mode"] = $mode;
+        $data["show"] = $id;
+        $data["user"] = $this->user->getId();
+        if(!isset($data["_id"])){
+            $data["_id"] = new ObjectId();
+        }
+        $updated = $this->entityManager->replace($data, 'follows');
 
-        return $shows;
+        return $updated->getModifiedCount();
     }
 
 

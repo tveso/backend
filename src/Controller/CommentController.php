@@ -17,7 +17,6 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 
 /** @Route("/api/comment", name="comment_")
- *  @Cache(expires="+3600 seconds")
  */
 class CommentController extends AbstractController
 {
@@ -62,7 +61,7 @@ class CommentController extends AbstractController
         $page = intval(($request->query->get('page')) ?? 1);
         $data = $this->commentsService->getAll($id, $page);
 
-        return $this->jsonResponse($data);
+        return $this->jsonResponseCached($data, $request);
     }
     /**
      * @Route("/{id}/delete", name="delete")

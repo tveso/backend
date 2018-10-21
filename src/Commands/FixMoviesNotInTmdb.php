@@ -61,6 +61,7 @@ class FixMoviesNotInTmdb extends Command
         try{
             $this->fixDataJob->missingIds();
         } catch (\Exception $e){
+            echo $e->getMessage()."\n";
             $this->logger->error($e);
         }
 

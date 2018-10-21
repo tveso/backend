@@ -8,6 +8,7 @@ namespace App\Auth;
 
 
 use App\Entity\Entity;
+use MongoDB\Model\BSONArray;
 use MongoDB\Model\BSONDocument;
 use Symfony\Component\Security\Core\User\UserInterface;
 
@@ -22,8 +23,10 @@ class User extends Entity implements UserInterface, \JsonSerializable
     private $accountNonLocked;
     private $roles;
     private $id;
+    private $google_id;
+    private $twitter_id;
 
-    public function __construct(?string $username, ?string $password, array $roles = array(), bool $enabled = true,
+    public function __construct(?string $username, ?string $password, array $roles = ['ROLE_USER'], bool $enabled = true,
                                 bool $accountNonExpired = true, bool $credentialsNonExpired = true,
                                 bool $accountNonLocked = true, string $email = null, array $data = [])
     {
@@ -43,7 +46,24 @@ class User extends Entity implements UserInterface, \JsonSerializable
     }
 
     public static function toArray(User $user){
-        return json_decode(json_encode($user), true);
+        return get_object_vars($user);
+    }
+
+    public static function fromArray(array $entity)
+    {
+        $user = new User('hola','ey');
+        foreach ($entity as $key=>$value) {
+            if($value instanceof BSONArray or $value instanceof BSONDocument) {
+                $value = iterator_to_array($value);
+            }
+            $keyAux = ucfirst($key);
+            $method = "set{$keyAux}";
+            if(method_exists($user, $method)) {
+                $user->{$method}($value);
+            }
+        }
+
+        return $user;
     }
 
 
@@ -211,7 +231,7 @@ class User extends Entity implements UserInterface, \JsonSerializable
      */
     public function jsonSerialize(?array $vars = null)
     {
-        $forbidden = ['password'];
+        $forbidden = ['password', 'google_id', 'twitter_id'];
         $vars = $vars ?? get_object_vars($this);
         $result = [];
         foreach ($vars as $key=>$value){
@@ -236,6 +256,48 @@ class User extends Entity implements UserInterface, \JsonSerializable
     public function setId($id): void
     {
         $this->id = $id;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getTwitterId()
+    {
+        return $this->twitter_id;
+    }
+
+    /**
+     * @param mixed $twitter_id
+     */
+    public function setTwitterId($twitter_id): void
+    {
+        $this->twitter_id = $twitter_id;
+    }
+
+    /**
+     * @return mixed
+     */
+    public function getGoogleId()
+    {
+        return $this->google_id;
+    }
+
+    /**
+     * @param mixed $google_id
+     */
+    public function setGoogleId($google_id): void
+    {
+        $this->google_id = $google_id;
+    }
+
+    /**
+     * @param null|string $username
+     * @return User
+     */
+    public function setUsername(?string $username): User
+    {
+        $this->username = $username;
+        return $this;
     }
 
 

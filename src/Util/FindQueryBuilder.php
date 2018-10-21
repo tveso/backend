@@ -8,138 +8,194 @@ namespace App\Util;
 
 
 
+use MongoDB\BSON\Regex;
+
 class FindQueryBuilder
 {
 
 
+    /**
+     * @var array
+     */
     private $params;
-    private $pipeline;
+    /**
+     * @var array
+     */
+    private $executors = ['genres' => 'getGenres',
+        'maxseasons'=> 'getMaxSeasons',
+        'year'=> 'getYear',
+        'yearmax' =>'getMaxYear',
+        'yearmin' => 'getMinYear',
+        'dateFilter' => 'getDateFilter',
+        'dateEpisode' => 'getDateEpisode',
+        'famous' => 'getFamous',
+        'duration' => 'getDuration',
+        'pipelines' => 'addPipelines',
+        'sort'=>'addSortPipeline',
+        'page' => 'addPage',
+        'limit' => null,
+        'gender' => 'inArray',
+        'place_of_birth' => 'setPlaceOfBirth'
+    ];
+    /**
+     * @var PipelineBuilder\PipelineBuilder
+     */
+    private $pipelineBuilder;
 
     public function __construct(array $params)
     {
         $this->params = $params;
+        $this->pipelineBuilder = new PipelineBuilder\PipelineBuilder();
     }
 
     public function build()
     {
-        $query = [];
-        $query = $query + $this->getGenres() + $this->getMaxSeasons() + $this->getYear() +$this->getMinMaxYear() +
-            $this->getFamous() + $this->getDuration() + $this->getType()+$this->getStatus()+$this->getDateFilter()+
-        $this->getDateEpisode();
-        $this->pipeline = [['$match' => $query]];
-        $this->buildOptions();
-
-        return $this->pipeline;
-    }
-
-    private function buildOptions()
-    {
-        $page = intval($this->params["page"] ?? 1);
-        $page = ($page>0) ? $page : 1;
-        $limit = intval($this->params["limit"] ?? 30);
-        $sortType =  $this->params["sort"] ?? 'popularity';
-        $pipelines = $this->params['pipelines'] ?? [];
-        $this->pipeline[]['$sort'] = [$sortType => -1];
-        $this->pipeline[]['$skip'] = ($page-1)*$limit;
-        $this->pipeline[]['$limit'] = $limit;
-        if(!empty($pipelines)){
-            $this->pipeline = array_merge($this->pipeline,$pipelines);
-            var_dump($this->pipeline);
-        }
-    }
-
-    private function getGenres()
-    {
-        $result = [];
-        if(array_key_exists('genres', $this->params)){
-            $genres = $this->params['genres'];
-            if($genres!== ''){
-                if(is_string($genres)){
-                    $genres = explode(",", $genres);
+        foreach ($this->params as $key=>$value){
+            if(in_array($key, ['opts', 'pipe_order'])) continue;
+            if(isset($this->executors[$key])){
+                $executor = $this->executors[$key];
+                if(method_exists($this, $executor)){
+                    $this->{$executor}($value, $key);
+                } else {
+                    continue;
                 }
-                $result['genres']['$all'] = [];
-                foreach ($genres as $g){
-                    $result['genres']['$all'][] = ['$elemMatch'=>["id"=>intval($g)]];
-                }
+            }else{
+                $this->pipelineBuilder->getPipe('$match')->setValue([$key=>$value]);
             }
         }
+        if(isset($this->params['pipe_order'])){
+            $this->pipelineBuilder->order($this->params['pipe_order']);
 
-        return $result;
+            return $this->pipelineBuilder->getQuery();
+        }
+        $this->pipelineBuilder->order(['$match'=> 6, '$group' => 5, '$project' => 4, '$sort'=> 3, '$skip'=> -1, '$limit' => -2]);
+
+        return $this->pipelineBuilder->getQuery();
     }
 
-    private function getMaxSeasons()
+    /**
+     * @param $value
+     * @param $key
+     * @throws \Exception
+     */
+    private function inArray($value, $key)
     {
-        $result = [];
-        if(array_key_exists('maxseasons', $this->params)){
-            $maxseasons = $this->params['maxseasons'];
-            $result['seasons']['$size'] = intval($maxseasons);
+        if($value!== ''){
+            if(is_string($value)){
+                $value = explode(",", $value);
+                $value = array_map(function($a) {
+                    return intval($a);
+                }, $value);
+            }
+            $mathpipe = $this->pipelineBuilder->getPipe('$match');
+            $mathpipe->setValue(['gender' => ['$in' => $value]]);
         }
-
-        return $result;
     }
 
-    private function getYear()
+
+    private function getGenres($value)
     {
         $result = [];
-        if(array_key_exists('year', $this->params)){
-            $year = $this->params['year'];
-            $year = explode(",", $year);
-            $result['year']['$in'] = $year;
+        $genres = $value;
+        if($genres!== ''){
+            if(is_string($genres)){
+                $genres = explode(",", $genres);
+            }
+            $result['genres']['$all'] = [];
+            foreach ($genres as $g){
+                $result['genres']['$all'][] = ['$elemMatch'=>["id"=>intval($g)]];
+            }
         }
-
-        return $result;
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue($result);
     }
 
-    private function getMinMaxYear()
+    private function getMaxSeasons($value)
     {
         $result = [];
-        if(array_key_exists('yearmax', $this->params)){
-            $maxyear = $this->params['yearmax'];
-            $result['year']['$lte'] = "$maxyear";
-        }
-        if(array_key_exists('yearmin', $this->params)){
-            $minyear = $this->params['yearmin'];
-            $result['year']['$gte'] = "$minyear";
-        }
+        $maxseasons =  $value;
+        $result['seasons']['$size'] = intval($maxseasons);
 
-        return $result;
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue($result);
     }
 
-    private function getFamous()
+    private function getYear($value)
     {
         $result = [];
-        $famous = $this->params["famous"] ?? false;
+        $year = $value;
+        $year = explode(",", $year);
+        $result['year']['$in'] = $year;
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue($result);
+    }
+
+    private function getMinYear($value)
+    {
+        $result = [];
+        $minyear = $value;
+        $result['$gte'] = "$minyear";
+
+        $matchPipe = $this->pipelineBuilder->getPipe('$match');
+        $value = $matchPipe->getQuery();
+        $value['$and'][]['year'] = $result;
+        $matchPipe->setValue($value);
+    }
+
+    /**
+     * @param $value
+     * @throws \Exception
+     */
+    private function getMaxYear($value)
+    {
+        $result = [];
+        $maxyear = $value;
+        $result['$lte'] = "$maxyear";
+
+        $matchPipe = $this->pipelineBuilder->getPipe('$match');
+        $value = $matchPipe->getQuery();
+        $value['$and'][]['year'] = $result;
+        $matchPipe->setValue($value);
+    }
+
+    private function getFamous($value)
+    {
+        $result = [];
+        $famous = $value;
         $famous = ($famous === "false" or $famous === false) ? false : true;
         if($famous === true){
             $result['rating.numVotes']['$gt'] =  20000;
         }
 
-        return $result;
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue($result);
     }
 
-    private function getDuration()
+    private function setPlaceOfBirth($value)
+    {
+        $this->pipelineBuilder->getPipe('$match')
+            ->setValue(["place_of_birth" => ['$regex' => new Regex("^$value", "i")]]);
+    }
+
+    private function getDuration($value)
     {
         $result = [];
-        if(array_key_exists('duration', $this->params)){
-            $duration = $this->params['duration'];
-            $matches = $this->quantityExpresion($duration);
-            if(!empty($matches)){
-                foreach ($matches["symbol"] as $key=>$value){
-                    if($value==='') continue;
-                    $operator = $this->getOperator($value);
-                    $number = intval($matches['number'][$key]);
-                    $result['duration'][$operator] = $number;
-                }
+        $duration = $value;
+        $matches = $this->quantityExpresion($duration);
+        if(!empty($matches)){
+            foreach ($matches["symbol"] as $key=>$value){
+                if($value==='') continue;
+                $operator = $this->getOperator($value);
+                $number = intval($matches['number'][$key]);
+                $result['duration'][$operator] = $number;
             }
         }
 
-        return $result;
+
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue($result);
     }
 
-    private function getType()
-    {
-        return $this->getProperty('type');
-    }
 
     private function getOperator(string $symbol)
     {
@@ -157,67 +213,79 @@ class FindQueryBuilder
         }
     }
 
-    private function getStatus()
+    public function addPipelines($value)
     {
-        return $this->getProperty('status');
-    }
-
-    private function getProperty(string $prop)
-    {
-        $result = [];
-
-        if(isset($this->params[$prop])){
-            $result[$prop] = $this->params[$prop];
+        $counter = [];
+        foreach ($value as $key=>$j){
+            foreach ($j as $pipeName=>$val){
+                if(isset($counter[$pipeName])){
+                    $this->pipelineBuilder->addPipe($pipeName, $val);
+                    continue;
+                }
+                $pipe = $this->pipelineBuilder->getPipe($pipeName);
+                $pipe->setValue($val);
+                $counter[$pipeName] = 1;
+            }
         }
-
-        return $result;
     }
 
-    private function getDateFilter()
+    public function addSortPipeline($value)
+    {
+        $this->pipelineBuilder->addPipe('$sort')->addField($value, -1);
+    }
+
+    private function getDateFilter($value)
     {
         $result = [];
         if(!isset($this->params['type'])){
-            return [];
+           return;
         }
-        if(array_key_exists('dateFilter', $this->params)){
-            $dateFilter = $this->params['dateFilter'];
-            $matches = $this->quantityExpresion($dateFilter);
-            if(!empty($matches)){
-                foreach ($matches["symbol"] as $key=>$value){
-                    if($value==='') continue;
-                    $operator = $this->getOperator($value);
-                    $date = $matches['number'][$key];
-                    $field = ($this->params['type']==='movie') ? 'release_date' : 'first_air_date';
-                    $result[$field][$operator] = $date;
-                }
+        $dateFilter = $value;
+        $matches = $this->quantityExpresion($dateFilter);
+        if(!empty($matches)){
+            foreach ($matches["symbol"] as $key=>$value){
+                if($value==='') continue;
+                $operator = $this->getOperator($value);
+                $date = $matches['number'][$key];
+                $field = ($this->params['type']==='movie') ? 'release_date' : 'first_air_date';
+                $result[$field][$operator] = $date;
             }
-        }
+            }
 
-        return $result;
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue($result);
     }
 
 
-    private function getDateEpisode()
+    private function getDateEpisode($value)
     {
         $result = [];
         if(!isset($this->params['type'])){
-            return [];
+            return;
         }
-        if(array_key_exists('dateEpisode', $this->params)){
-            $duration = $this->params['dateEpisode'];
-            $matches = $this->quantityExpresion($duration);
-            if(!empty($matches)){
-                foreach ($matches["symbol"] as $key=>$value){
-                    if($value==='') continue;
-                    $operator = $this->getOperator($value);
-                    $date = $matches['number'][$key];
-                    $field = 'next_episode_to_air.air_date';
-                    $result[$field][$operator] = $date;
-                }
+        $duration = $value;
+        $matches = $this->quantityExpresion($duration);
+        if(!empty($matches)){
+            foreach ($matches["symbol"] as $key=>$value){
+                if($value==='') continue;
+                $operator = $this->getOperator($value);
+                $date = $matches['number'][$key];
+                $field = 'next_episode_to_air.air_date';
+                $result[$field][$operator] = $date;
             }
         }
 
-        return $result;
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue($result);
+    }
+
+    private function addPage($value)
+    {
+        $limit = min(intval(($this->params['limit']) ?? 30),100);
+        $page = max(intval($value),1);
+        $skip = $limit*($page-1);
+        $this->pipelineBuilder->addPipe('$skip', $skip);
+        $this->pipelineBuilder->addPipe('$limit', $limit);
     }
 
     private function quantityExpresion(string $expr)
@@ -230,9 +298,4 @@ class FindQueryBuilder
         return [];
     }
 
-    public static function getSimpleProject()
-    {
-        return ["title"=>1, "name"=>1, "original_title"=> 1,"original_name"=>1, "poster_path"=>1,
-            "backdrop_path"=>1, "ratings"=>1, "vote_average"=>1, "vote_count"=> 1, 'type' => 1, 'userRate' => 1];
-    }
 }

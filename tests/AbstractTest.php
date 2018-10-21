@@ -52,8 +52,6 @@ abstract class AbstractTest extends WebTestCase
         $user = $this->createUser();
         $token = new UsernamePasswordToken($user, null, $firewallName, array('ROLE_ADMIN'));
         static::$kernel->getContainer()->get('security.token_storage')->setToken($token);
-        $session->set('_security_'.$firewallContext, serialize($token));
-        $session->save();
 
         $cookie = new Cookie($session->getName(), $session->getId());
         $this->client->getCookieJar()->set($cookie);

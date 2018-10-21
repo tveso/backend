@@ -4,11 +4,11 @@ namespace App\Controller;
 
 
 use App\Services\ConfigService;
+use GuzzleHttp\Psr7\Request;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Cache;
 use Symfony\Component\Routing\Annotation\Route;
 
 /** @Route("/api/config", name="config_")
- *  @Cache(expires="+3600 seconds")
  */
 class ConfigController extends AbstractController
 {
@@ -29,12 +29,14 @@ class ConfigController extends AbstractController
 
     /**
      * @Route("/genres", name="genres")
-     *
+     * @param \Symfony\Component\HttpFoundation\Request $request
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
      */
-    public function genres()
+    public function genres(\Symfony\Component\HttpFoundation\Request $request)
     {
         $data = $this->configService->getGenres();
 
-       return $this->json($data);
+       return $this->jsonResponseCached($data, $request, 10800);
     }
 }

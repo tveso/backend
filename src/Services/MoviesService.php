@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Auth\UserService;
 use App\EntityManager;
 use App\Util\FindQueryBuilder;
+use Doctrine\Common\Cache\MongoDBCache;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
 
@@ -30,6 +31,14 @@ class MoviesService extends AbstractShowService
      * @var \App\Auth\User|string
      */
     private $user;
+    /**
+     * @var CacheService
+     */
+    private $cacheService;
+    /**
+     * @var ShowService
+     */
+    private $showService;
 
 
     /**
@@ -37,43 +46,59 @@ class MoviesService extends AbstractShowService
      * @param EntityManager $entityManager
      * @param FindService $findService
      * @param UserService $userService
+     * @param CacheService $cacheService
+     * @param ShowService $showService
      */
-    public function __construct(EntityManager $entityManager, FindService $findService, UserService $userService)
+    public function __construct(EntityManager $entityManager,
+                                FindService $findService,
+                                UserService $userService,
+                                CacheService $cacheService,
+                                ShowService $showService)
     {
         $this->entityManager = $entityManager;
         $this->findService = $findService;
         $this->userService = $userService;
         $this->user = $userService->getUser();
+        $this->cacheService = $cacheService;
+        $this->showService = $showService;
     }
 
 
+    /**
+     * @return array
+     */
     public function popular()
     {
-        $userId = $this->user->getId();
-        $query = ["limit"=> 12, "page"=> 1, "type"=>"movie", "sort" => "popularity"];
-        $query['pipelines'][]['$project'] = FindQueryBuilder::getSimpleProject();
-        $query['pipelines'][] = $this->addUserRatingPipeLine($userId);
-        return $this->findService->all($query);
+        $key = md5('popular_movies');
+        $data = $this->cacheService->getItem($key);
+        if(!$this->cacheService->hasItem($key)){
+            $query['type'] = 'movie';
+            $query['pipelines'] = array_merge($this->addSortPipeline('popularity'),
+                $this->addLimitPipeline(30, 1));
+            $data = $this->findService->all($query);
+            $this->cacheService->save($key, $data, 60*60*24);
+        }
+
+        return $this->showService->setUserDataIntoShows($data, $this->getProjection());
     }
 
     public function upcoming()
     {
-        $date = new \DateTime('now');
-        $query = ["limit"=> 12, "page"=> 1, "type"=>"movie", "sort" => "release_date", "status"=> "Released",
-            "dateFilter"=> "<={$date->format('Y-m-d')}"];
-        $userId = $this->user->getId();
-        $query['pipelines'][]['$project'] = FindQueryBuilder::getSimpleProject();
-        $query['pipelines'][] = $this->addUserRatingPipeLine($userId);
 
-        return $this->findService->all($query);
+
+        return [];
     }
 
     public function getById(string $id)
     {
-        $result = $this->entityManager->findOnebyId($id,'movies');
-        if($result === null) return [];
-
-        return $result;
+        $query = [];
+        $query['_id'] = $id;
+        $query['pipelines'] = array_merge($this->addLimitPipeline(1, 1), $this->addUserRatingPipeLine($this->user->getId()),
+            $this->addFollowPipeLine($this->user->getId()));
+        $result = $this->findService->allCached($query);
+        $result = $this->showService->setUserDataIntoShows($result);
+        if(isset($result[0])) return $result[0];
+        return ["_id"=> null];
     }
 
 

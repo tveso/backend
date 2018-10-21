@@ -14,7 +14,6 @@ use Symfony\Component\Routing\Annotation\Route;
 
 
 /** @Route("/api/follow", name="find_")
- *  @Cache(expires="+3600 seconds")
  */
 class FollowController extends AbstractController
 {

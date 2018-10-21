@@ -8,6 +8,8 @@ composer.lock
 symfony.lock
 .env
 .env.dist
+.env.test
+phpunit.xml.dist
 jobs.bat
 ###< symfony/framework-bundle ###
 

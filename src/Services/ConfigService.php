@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\EntityManager;
 use App\Services\TheMovieDb\TheMovieDbClient;
+use App\Util\PipelineBuilder\PipelineBuilder;
 
 class ConfigService
 {
@@ -19,22 +20,31 @@ class ConfigService
      * @var TheMovieDbClient
      */
     private $theMovieDbClient;
+    /**
+     * @var FindService
+     */
+    private $findService;
 
     /**
      * ConfigService constructor.
      * @param EntityManager $entityManager
      * @param TheMovieDbClient $theMovieDbClient
+     * @param FindService $findService
      */
-    public function __construct(EntityManager $entityManager, TheMovieDbClient $theMovieDbClient)
+    public function __construct(EntityManager $entityManager, TheMovieDbClient $theMovieDbClient, FindService $findService)
     {
         $this->entityManager = $entityManager;
         $this->theMovieDbClient = $theMovieDbClient;
+        $this->findService = $findService;
     }
 
 
     public function getGenres()
     {
-        return $this->entityManager->find([], 'genres')->toArray();
+        $pb = new PipelineBuilder();
+        $pb->addPipe('$match', []);
+
+        return $this->findService->allCached([], 'genres', 60*60*24*30);
     }
 
     public function updateGenres()

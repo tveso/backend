@@ -8,12 +8,12 @@ use App\Form\RateForm;
 use App\Form\UserRegistrationForm;
 use App\Services\RatingService;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Cache;
+use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 
 
 /** @Route("/api/rating", name="rating_")
- *  @Cache(expires="+3600 seconds")
  */
 class RatingController extends AbstractController
 {
@@ -34,13 +34,14 @@ class RatingController extends AbstractController
     }
 
     /**
-     * @Route("/{id}/rate", name="follow", methods={"POST"})
-     * @param UserRegistrationForm $userRegistrationForm
+     * @Route("/rate", name="rate", methods={"POST"})
+     * @param RateForm $rateForm
      * @return object|\Symfony\Component\HttpFoundation\JsonResponse
+     * @ParamConverter("rateForm", converter="class")
      */
-    public function rate(RateForm $userRegistrationForm)
+    public function rate(RateForm $rateForm)
     {
-        $this->ratingService->rate($userRegistrationForm);
+        $this->ratingService->rate($rateForm);
         return $this->okResponse();
     }
 }

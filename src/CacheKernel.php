@@ -9,7 +9,7 @@ class CacheKernel extends HttpCache
     protected function getOptions()
     {
         return array(
-            'stale_if_error'         => 0,
+            'stale_if_error' => 0,
         );
     }
 }

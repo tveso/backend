@@ -8,6 +8,7 @@ namespace App\Jobs;
 
 
 use App\EntityManager;
+use MongoDB\BSON\Regex;
 use MongoDB\Driver\Cursor;
 use MongoDB\Model\BSONDocument;
 
@@ -29,18 +30,20 @@ class UpdateSearchFieldJob
         $this->entityManager = $entityManager;
     }
 
-    public function updateSearchFieldByLanguages(array $langs = [])
+    public function updateSearchFieldByLanguages()
     {
-        $query = $this->entityManager->find([],'movies');
+        $query = $this->entityManager->find(['$or'=>
+            [['title' => ['$regex'=> new Regex('([áéíóúàèìòù]{1,})')]],
+                ['name' => ['$regex'=> new Regex('([áéíóúàèìòù]{1,})')]]]],'movies');
         foreach ($query as $value){
             $this->updateEntity($value->getArrayCopy());
         }
     }
 
-    public function updateEntity(array $entity)
+    public function updateEntity(array $entity, string $collection = 'movies')
     {
         $entity = $this->prepareEntity($entity);
-        $this->entityManager->replace($entity,'movies');
+        $this->entityManager->replace($entity,$collection);
 
         return $entity;
     }
@@ -79,7 +82,7 @@ class UpdateSearchFieldJob
 
     public static function prepareString(string $string) : string
     {
-        $string =strtolower($string);
+        $string =mb_strtolower($string, 'UTF-8');
         $chars = "',:#@|!¿?=)(/&%\$·`´*'- .";
         $chars = str_split($chars);
         $replace= [["á","a"],["é","e"],["í","i"],["ó","o"],["ú","u"], ['ñ','n'], ['ç','s']];
@@ -89,7 +92,6 @@ class UpdateSearchFieldJob
         foreach ($replace as $r){
             $string = str_replace($r[0],$r[1], $string);
         }
-
 
         return $string;
     }

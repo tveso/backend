@@ -34,28 +34,44 @@ class TvShowService extends AbstractShowService
      * @var User
      */
     private $user;
+    /**
+     * @var UserService
+     */
+    private $userService;
+    /**
+     * @var ShowService
+     */
+    private $showService;
 
     /**
      * TvShowService constructor.
      * @param FindService $findService
      * @param EntityManager $entityManager
      * @param UserService $userService
+     * @param ShowService $showService
      */
-    public function __construct(FindService $findService, EntityManager $entityManager, UserService $userService)
+    public function __construct(FindService $findService, EntityManager $entityManager, UserService $userService,
+                                ShowService $showService)
     {
         $this->findService = $findService;
         $this->entityManager = $entityManager;
         $this->user = $userService->getUser();
+        $this->userService = $userService;
+        $this->showService = $showService;
     }
 
 
 
     public function getById(string $id)
     {
-        $result = $this->entityManager->findOnebyId($id,'movies')->getArrayCopy();
-        if($result === null) return [];
-
-        return $result;
+        $query = [];
+        $query['_id'] = $id;
+        $query['pipelines'] = array_merge($this->addLimitPipeline(1, 1), $this->addUserRatingPipeLine($this->user->getId()),
+            $this->addFollowPipeLine($this->user->getId()));
+        $result = $this->findService->allCached($query);
+        $result = $this->showService->setUserDataIntoShows($result);
+        if(isset($result[0])) return $result[0];
+        return ["_id"=> null];
     }
 
 
@@ -107,8 +123,8 @@ class TvShowService extends AbstractShowService
             intval($date->format('Y')));
         $query = ["limit"=> 200, "page"=> 1, "type"=>"tvshow", "sort" => "release_date",
             "dateEpisode"=> ">={$date->format("Y-m-01")};<={$date->format("Y-m-$numDaysMonth")}"];
-        $query['pipelines'][]['$project'] = FindQueryBuilder::getSimpleProject();
-        $query['pipelines'][] = $this->addUserRatingPipeLine($this->user->getId());
+
+        $query['pipelines'] = $this->addShowsPipeLines($this->user->getId());
         return $this->findService->all($query);
     }
 

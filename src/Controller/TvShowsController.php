@@ -7,9 +7,9 @@
 namespace App\Controller;
 
 
-use App\Entity\Show;
 use App\Services\CommentsService;
 use App\Services\FollowService;
+use App\Services\RecommendatorService;
 use App\Services\TvShowService;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Cache;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
@@ -18,7 +18,6 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /** @Route("/api/tvshows", name="movies_")
- *  @Cache(expires="+3600 seconds")
  */
 class TvShowsController extends AbstractController
 {
@@ -36,38 +35,49 @@ class TvShowsController extends AbstractController
      * @var CommentsService
      */
     private $commentsService;
+    /**
+     * @var RecommendatorService
+     */
+    private $recommendatorService;
 
     /**
      * TvShowController constructor.
      * @param TvShowService $tvshowService
+     * @param FollowService $followService
+     * @param CommentsService $commentsService
+     * @param RecommendatorService $recommendatorService
      */
-    public function __construct(TvShowService $tvshowService, FollowService $followService, CommentsService $commentsService)
+    public function __construct(TvShowService $tvshowService, FollowService $followService,
+                                CommentsService $commentsService, RecommendatorService $recommendatorService)
     {
         $this->tvshowService = $tvshowService;
         $this->followService = $followService;
         $this->commentsService = $commentsService;
+        $this->recommendatorService = $recommendatorService;
     }
 
 
     /**
      * @Route("/upcoming", name="upcoming")
+     * @throws \Exception
      */
-    public function upcoming() : Response
+    public function upcoming(Request $request) : Response
     {
         $data = $this->tvshowService->upcoming();
 
-        return $this->jsonResponse($data);
+        return $this->jsonResponseCached($data, $request);
     }
 
     /**
      * @Route("/{id}", name="get")
+     * @throws \Exception
      */
-    public function get(string $id)
+    public function getTvShow(string $id, Request $request)
     {
         $data = $this->tvshowService->getById($id);
         $data['comments'] = $this->commentsService->getAll($data["_id"]);
 
-        return $this->jsonResponse($data);
+        return $this->jsonResponseCached($data, $request);
     }
 
 
@@ -76,27 +86,15 @@ class TvShowsController extends AbstractController
      * @param int $season
      * @param string $id
      * @return object|\Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
      */
-    public function updateEpisodeSeason(int $season, string $id)
+    public function updateEpisodeSeason(int $season, string $id,  Request $request)
     {
         $data = $this->tvshowService->updateSeasonEpisodes($id,$season);
 
-        return $this->get($data["_id"]);
+        return $this->getTvShow($data["_id"], $request);
     }
 
-    /**
-     * @Route("/{id}/follow", name="followtvshow")
-     * @param Request $request
-     * @param string $id
-     * @return object|\Symfony\Component\HttpFoundation\JsonResponse
-     * @throws \Exception
-     */
-    public function followTvshow(Request $request, string $id)
-    {
-        $mode = $request->query->get('mode');
-        $this->followService->followTvshow($id, $mode);
-        return $this->okResponse();
-    }
 
 
 }

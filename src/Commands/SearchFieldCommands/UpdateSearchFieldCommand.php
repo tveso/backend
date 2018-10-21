@@ -48,7 +48,7 @@ class UpdateSearchFieldCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         try{
-            $this->updateSearchFieldJob->updateSearchFieldByLanguages(['ja']);
+            $this->updateSearchFieldJob->updateSearchFieldByLanguages();
         } catch (\Exception $e){
             $this->logger->error($e);
         }

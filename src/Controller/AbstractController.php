@@ -3,8 +3,13 @@
 namespace App\Controller;
 
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController as AC;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\EventListener\AbstractSessionListener;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Symfony\Component\Validator\ConstraintViolation;
+use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
+
 use Symfony\Component\Validator\ConstraintViolationListInterface;
 
 
@@ -49,5 +54,36 @@ abstract class AbstractController extends AC
         $data = ["code"=> $code, "message"=>$message] + $data;
 
         return $this->jsonResponse($data,$code);
+    }
+
+
+    /**
+     * @param $data
+     * @param Request $request
+     * @param int $maxAge
+     * @return JsonResponse
+     * @throws \Exception
+     */
+    protected function jsonResponseCached($data, Request $request, int $maxAge = 3600)
+    {
+        $response = new JsonResponse($data);
+
+        return $response;
+    }
+
+    /**
+     * @param Request $request
+     * @param TokenStorageInterface $tokenStorage
+     * @param AuthorizationCheckerInterface $authorizationChecker
+     * @return JsonResponse
+     * @throws \Exception
+     */
+    protected function isLogged(Request $request, TokenStorageInterface $tokenStorage, AuthorizationCheckerInterface $authorizationChecker)
+    {
+        if($authorizationChecker->isGranted('IS_AUTHENTICATED_FULLY')){
+
+            return $this->jsonResponseCached(["user" => $tokenStorage->getToken()->getUser()], $request);
+        }
+        return $this->jsonResponse(["user" => null]);
     }
 }

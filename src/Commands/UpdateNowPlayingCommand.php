@@ -50,6 +50,7 @@ class UpdateNowPlayingCommand extends Command
         try{
             $this->updateNowPlayingMoviesJob->update();
         } catch (\Exception $e){
+            echo $e->getMessage()."\n";
             $this->logger->error($e->getMessage());
         }
 

@@ -50,6 +50,7 @@ class UpdateTvShowsChangesCommand extends Command
             $endDate = $input->getArgument('enddate');
             $this->updateTvShowsJob->updateByTMdbDates($startDate,$endDate);
         } catch (\Exception $e){
+            echo $e->getMessage()."\n";
             $this->logger->error($e->getMessage());
         }
 

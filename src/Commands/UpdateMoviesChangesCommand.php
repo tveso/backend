@@ -53,6 +53,7 @@ class UpdateMoviesChangesCommand extends Command
             $endDate = $input->getArgument('enddate');
             $this->updateMoviesJob->updateByTMdbDates($startDate,$endDate);
         } catch (\Exception $e){
+            echo $e->getMessage()."\n";
             $this->logger->error($e->getMessage());
         }
 

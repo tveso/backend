@@ -50,6 +50,7 @@ class GetLatestTvshowsCommand extends Command
         try{
             $this->updateTvShowsJob->getLatestTvshows();
         } catch (\Exception $e){
+            echo $e->getMessage()."\n";
             $this->logger->error($e->__toString());
         }
 

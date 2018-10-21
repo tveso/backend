@@ -91,11 +91,9 @@ class UserProvider implements UserProviderInterface
             throw new UsernameNotFoundException();
         }
         $user = $user->getArrayCopy();
-        $data = new Entity($user);
-        $data = $data->get('data')->getData();
         $roles = $user["roles"]->getArrayCopy();
         $userDao = new User($user["username"], $user["password"], $roles, $user['enabled'], $user['accountNonExpired'],
-            $user['credentialsNonExpired'], $user['accountNonLocked'], $user['email'], $data);
+            $user['credentialsNonExpired'], $user['accountNonLocked'], $user['email'], []);
         $userDao->setId($user["_id"]);
 
         return $userDao;

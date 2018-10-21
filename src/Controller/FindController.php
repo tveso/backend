@@ -6,14 +6,17 @@ namespace App\Controller;
 
 use App\Services\FindService;
 use App\Services\RecommendatorService;
+use App\Services\SearchService;
+use App\Services\ShowService;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Cache;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpKernel\EventListener\AbstractSessionListener;
 use Symfony\Component\Routing\Annotation\Route;
 
 
 /** @Route("/api/find", name="find_")
- *  @Cache(expires="+3600 seconds")
  */
 class FindController extends AbstractController
 {
@@ -27,16 +30,29 @@ class FindController extends AbstractController
      * @var RecommendatorService
      */
     private $recommenatorService;
+    /**
+     * @var ShowService
+     */
+    private $showService;
+    /**
+     * @var SearchService
+     */
+    private $searchService;
 
     /**
      * FindController constructor.
      * @param FindService $findService
      * @param RecommendatorService $recommenatorService
+     * @param ShowService $showService
+     * @param SearchService $searchService
      */
-    public function __construct(FindService $findService, RecommendatorService $recommenatorService)
+    public function __construct(FindService $findService, RecommendatorService $recommenatorService,
+                                ShowService $showService, SearchService $searchService)
     {
         $this->findService = $findService;
         $this->recommenatorService = $recommenatorService;
+        $this->showService = $showService;
+        $this->searchService = $searchService;
     }
 
     /**
@@ -50,35 +66,56 @@ class FindController extends AbstractController
         $page = $request->query->get('page') ?? 1;
         $limit = intval($limit);
         $page = intval($page);
-        $data = $this->findService->search($query,$limit,$page);
+        $data = $this->searchService->search($query,$limit,$page);
 
         return $this->jsonResponse($data);
     }
 
 
     /**
-     * @param string $id
-     * @Route("/all", name="all")
+     * @param Request $request
      * @return \Symfony\Component\HttpFoundation\JsonResponse|Response
+     * @Route("/all", name="all")
      * @throws \Exception
      */
     public function all(Request $request)
     {
         $options = $request->query->all();
-        $data = $this->findService->all($options);
+        $data = $this->showService->filter($options);
 
-        return $this->jsonResponse($data);
+        return $this->jsonResponseCached($data, $request);
+    }
+
+    /**
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @Route("/recommend/user", name="recommenduser")
+     * @throws \Exception
+     */
+    public function userRecommendations(Request $request)
+    {
+        $page = ($request->query->get('page')) ?? 1;
+        $page = intval($page);
+        $data = $this->recommenatorService->getShowsRecommendToUser($page);
+
+        return $this->jsonResponseCached($data, $request);
     }
 
     /**
      * @param string $id
-     *  @Route("/recommend/{id}", name="recommend")
+     * @param Request $request
      * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @Route("/recommend/{id}", name="recommend")
+     * @throws \Exception
      */
-    public function recommend(string $id)
+    public function recommend(string $id, Request $request)
     {
-        $data = $this->recommenatorService->recommend($id);
+        $page = ($request->query->get('page')) ?? 1;
+        $data = $this->recommenatorService->recommendByShowId($id, $page);
 
-        return $this->json($data);
+        return $this->jsonResponseCached($data, $request);
     }
+
+
+
 }
