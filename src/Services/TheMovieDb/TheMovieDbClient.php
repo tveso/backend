@@ -49,8 +49,8 @@ class TheMovieDbClient
 
     private function buildUri(string $resource, array $params = [])
     {
-        $params['api_key'] = $this->apikey;
-        $params["language"] = $this->language;
+        $defaultParams = ['api_key' => $this->apikey, 'language' => $this->language];
+        $params = array_merge_recursive($params, $defaultParams);
         $paramsStr = http_build_query($params,"?");
         return  sprintf("%s%s?%s",$this->uri,$resource,$paramsStr);
     }

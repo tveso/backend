@@ -121,11 +121,14 @@ class TvShowService extends AbstractShowService
         $date = new \DateTime('now');
         $numDaysMonth = cal_days_in_month(CAL_GREGORIAN, intval($date->format('m')),
             intval($date->format('Y')));
-        $query = ["limit"=> 200, "page"=> 1, "type"=>"tvshow", "sort" => "release_date",
+        $query = ["page"=> 1, "type"=>"tvshow",
             "dateEpisode"=> ">={$date->format("Y-m-01")};<={$date->format("Y-m-$numDaysMonth")}"];
-
-        $query['pipelines'] = $this->addShowsPipeLines($this->user->getId());
-        return $this->findService->all($query);
+        $query['pipelines'] = [['$limit' => 50], ['$project'=> ['_id'=> 1]], ['$sort' => ['next_episode_to_air.air_date' => 1]]];
+        $query['pipe_order'] = ['$match' =>5, '$sort' => 4, '$project' => 3];
+        $result = $this->findService->all($query, 'movies', 60*60*24);
+        $pipelines =array_merge([['$sort' => ['next_episode_to_air.air_date' => 1]]], $this->getProjection());
+        $result = $this->showService->setUserDataIntoShows($result,  $pipelines, false);
+        return $result;
     }
 
 

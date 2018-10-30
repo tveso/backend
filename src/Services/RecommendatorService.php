@@ -12,6 +12,7 @@ use App\EntityManager;
 use App\Jobs\UpdateTmdbJobs\UpdateMoviesJob;
 use App\Jobs\UpdateTmdbJobs\UpdateTvShowsJob;
 use App\Util\ArrayUtil;
+use App\Util\PipelineBuilder\PipelineBuilder;
 use App\Util\RecommendatorQueryBuilder;
 use MongoDB\BSON\ObjectId;
 use Symfony\Component\Stopwatch\Stopwatch;
@@ -47,6 +48,10 @@ class RecommendatorService extends AbstractShowService
      * @var ShowService
      */
     private $showService;
+    /**
+     * @var CacheService
+     */
+    private $cacheService;
 
     /**
      * RecommendatorService constructor.
@@ -56,13 +61,15 @@ class RecommendatorService extends AbstractShowService
      * @param UserService $userService
      * @param FindService $findService
      * @param ShowService $showService
+     * @param CacheService $cacheService
      */
     public function __construct(EntityManager $entityManager,
                                 UpdateMoviesJob $updateMoviesJob,
                                 UpdateTvShowsJob $updateTvShowsJob,
                                 UserService $userService,
                                 FindService $findService,
-                                ShowService $showService)
+                                ShowService $showService,
+                                CacheService $cacheService)
     {
         $this->entityManager = $entityManager;
         $this->updateMoviesJob = $updateMoviesJob;
@@ -71,6 +78,7 @@ class RecommendatorService extends AbstractShowService
         $this->user = $userService->getUser();
         $this->findService = $findService;
         $this->showService = $showService;
+        $this->cacheService = $cacheService;
     }
 
 
@@ -94,56 +102,73 @@ class RecommendatorService extends AbstractShowService
     {
         $show = $this->entityManager->findOnebyId($id, 'movies');
         $result = [];
-        $userId = $this->user->getId();
         if(is_null($show)){
             return $result;
         }
-        $data = ["castIds" => [], "crewIds" => [], "keywords" => [], "networks" => [], "genres" => [],
-            "showIds" => [$show["_id"]], 'production_companies' => [], 'production_countries'=> [], 'casts' => [], 'crews' => []];
-        $data["showIds"] = array_merge($data["showIds"], $this->getUserFollowsShowsIds($userId));
-        $data['type'] = $show['type'];
-        $data['limit'] = 30;
-        $data['page'] = $page;
-        $this->getShowRecommendData($show, $data);
-        $data = $this->normalize($data);
-        $result = $this->recommend($data);
+        $query = ["shows" => [$id], "type" => $show['type'], 'page' => $page,'mode'=>'chose'];
 
-
-        $data = $this->showService->setUserDataIntoShows($result, array_merge([['$sort'=> ['popularity' => -1]]],$this->getProjection()));
-
-        return $data;
+        return $this->findRecommendedShows($query)['shows'];
     }
 
 
     /**
+     * @param array $query
+     * @return array
+     * @throws \Exception
+     */
+    public function findRecommendedShows(array $query = [])
+    {
+        $default = ['mode' => 'automatic', 'page' => 1, 'type' => null, 'shows' => [], 'length' => 10];
+        $query = array_merge($default, $query);
+        $userId = $this->user->getId();
+        $ids = $query["shows"];
+        $type = $query['type'];
+        $mode = $query['mode'];
+        $page = $query['page'];
+        if($mode === 'automatic'){
+            $shows = array_slice($this->getUserFollowsShows($userId), 0, $query['length']);
+        }
+        if($mode === 'chose'){
+            $shows = $this->getShowsByIds($ids);
+        }
+        $result = $this->getShowsRecommendByOtherShows($shows, $page, $type);
+        return $result;
+    }
+
+    /**
+     * @param $shows
      * @param int $page
      * @param string $type
      * @return array
      * @throws \Exception
      */
-    public function getShowsRecommendToUser(int $page = 1, string $type = 'movie')
+    public function getShowsRecommendByOtherShows($shows, int $page = 1, ?string $type = 'movie')
     {
-        $userId = $this->user->getId();
-        $showsIds = $this->getUserFollowsShowsIds($userId);
-        $showsFollowed = $this->getUserFollowsShows($userId, $showsIds);
         $data = ["castIds" => [], "crewIds" => [], "keywords" => [], "networks" => [], "genres" => [], "type" => $type,
             "showIds" => [], 'production_companies' => [], 'production_countries' => [], 'page' => $page, 'limit' => 30,
-            'casts'=> [], 'crews' => []];
-        $data["showIds"] = $showsIds;
-        foreach ($showsFollowed as $show) {
+            'casts'=> [], 'crews' => [], 'original_language' => []];
+        $userId = $this->user->getId();
+        $userShows = $this->getUserFollowsShowsIds($userId);
+        foreach ($shows as $show) {
             $this->getShowRecommendData($show, $data);
         }
+        $data['showIds'] = array_merge($data['showIds'], $userShows);
         $normalizedData = $this->normalize($data);
-        $data = $this->recommend($normalizedData);
-        $data = $this->showService->setUserDataIntoShows($data, array_merge([['$sort' => ['popularity' => -1]]], $this->getProjection()));
+        $result = $this->recommend($normalizedData);
+            $result = $this->showService->setUserDataIntoShows($result,
+                array_merge([['$sort'=> ['popularity' => -1]], ['$project' =>  ["title"=>1, "name"=>1, "original_title"=> 1,
+                    "original_name"=>1, "poster_path"=>1, 'original_language' => 1,
+                    "backdrop_path"=>1, "ratings"=>1, "vote_average"=>1, "vote_count"=> 1, 'type' => 1, 'userRate' => 1,
+                    "year"=> 1, "release_date"=> 1, "first_air_date" => 1, 'userFollow' => 1, "next_episode_to_air"=> 1,
+                    'rank' => 1, 'popularity'=> 1, 'rating' => 1, 'genres'=> 1, 'networks' => 1, 'credits'=> 1, 'keywords' => 1]]]));
+        $resultAux = $this->rateShows($result, $normalizedData);
         $result = [];
-        $result['shows'] = $data;
+        $result['shows'] = $resultAux;
         $result['genres'] = $normalizedData['genres'];
         $result['crew'] = $normalizedData['crews'];
         $result['cast'] = $normalizedData['casts'];
         $result['keywords'] = $normalizedData['keywords'];
         $result['languages'] = $normalizedData['original_language'];
-
         return $result;
     }
 
@@ -153,17 +178,12 @@ class RecommendatorService extends AbstractShowService
         $crewIds = $this->getArrayIds($show['credits']['crew']);
         $data["castIds"][] = $castIds;
         $data["crewIds"][] = $crewIds;
+        $data["showIds"][] = $show['_id'];
         $data["genres"][] =  $show['genres'];
-        $data["original_language"][] = $show["original_language"];
         $year = ($show["type"] === 'movie') ? 'release_date' : 'first_air_date';
         $year = $show[$year];
         $year = explode('-', $year)[0];
         $year = intval($year);
-        if(!isset($data['popularity'])){
-            $data['popularity'] = $show['popularity'];
-        } else {
-            $data['popularity'] = ($data['popularity']+$show['popularity']) / 2;
-        }
         if(!isset($data['year'])){
             $data['year'] = $year;
         } else {
@@ -178,48 +198,23 @@ class RecommendatorService extends AbstractShowService
         if(isset($show["networks"])){
             $data["networks"][] = $data['networks'];
         }
-        if(isset($show['production_companies'])) {
-            $data['production_companies'][] = $show['production_companies'];
-        }
-        if(isset($show['production_countries'])) {
-            $data['production_countries'][] = $show['production_countries'];
-        }
+        $data["original_language"]=array_merge($data['original_language'], [$show['original_language']]);
         $data['casts']= array_merge($data['casts'], $show['credits']['cast']);
         $data['crews']= array_merge($data['crews'], $show['credits']['crew']);
     }
 
     public function getUserFollowsShowsIds(string $id)
     {
-        $pipelines['pipelines'] = [
-            ['$match' => ['user' => new ObjectId($id), 'mode' => ['$in' => ['finalized', 'watched', 'following']]]],
-            ['$sort' => ['updated_at' => 1]],
-            ['$lookup' =>
-                [
-                    'from' => 'movies',
-                    'localField' => 'show',
-                    'foreignField' => '_id',
-                    'as' => 'shows'
-                ]],
-            ['$unwind' => ['path' => '$shows']],
-            ['$replaceRoot' => ['newRoot' => '$shows']],
-            ['$project' => ["_id" => 1]]
-        ];
-        $pipelines["pipe_order"] = ['$project' => -5];
-        $result = $this->findService->allCached($pipelines,'follows');
-        if(empty($result)) {
-            return [];
-        }
-
+        $result = $this->getUserFollowsShows($id);
         return array_map(function($a){
             return $a["_id"];
         }, $result);
     }
 
-    public function getUserFollowsShows(string $id, array $ids = [])
+    public function getShowsByIds(array $ids = [])
     {
         $pipelines['pipelines'] = [
             ['$match' => ['_id' => ['$in' => $ids]]],
-            ['$sample' => ['size' => 40]],
             ['$project' => [
                 'id' => 1,
                 'credits' => 1,
@@ -229,6 +224,8 @@ class RecommendatorService extends AbstractShowService
                 'networks' => 1,
                 'keywords' => 1,
                 'popularity' => 1,
+                'title' => 1,
+                'name' => 1,
                 'genres' => 1,
                 'release_date' => 1,
                 'first_air_date' => 1,
@@ -244,69 +241,40 @@ class RecommendatorService extends AbstractShowService
         return $result;
     }
 
+    /**
+     * @param array $data
+     * @return mixed
+     */
     public function recommend(array $data)
     {
-        $default = ['limit' => 30, 'page' => 1, 'year' => 1970, 'popularity' => 5];
+        $default = ['limit' => 30, 'page' => 1, 'year' => 1970, 'popularity' => 5, 'genres' => []];
         $data = array_merge($default, $data);
         $limit = $data['limit'];
         $page = $data['page'];
-        $minYear = intval($data['year'])-10;
-        $minPopularity = min($data['popularity'] - $data['popularity']*0.25, 5);
-        $match = ['type' => $data['type'],
-            'credits' => ['$exists' => true], 'popularity'=> ['$gte' => $minPopularity]];
-        $project =
-            [
-                'title' => 1,
-                'titles' => 1,
-                'backdrop_path' => 1,
-                'type'=> 1,
-                'poster_path' =>1,
-                'ratings' => 1,
-                'vote_count'=>1,
-                'vote_average'=>1,
-                'networks' => 1,
-                'keywords' => 1,
-                'genres' => 1,
-                'production_company' => 1,
-                'production_country' => 1,
-                'release_date' => 1,
-                'first_air_date' => 1,
-                'rating' => 1,
-                'popularity' => 1,
-                'year' => 1,
-            ];
-        $rq = new RecommendatorQueryBuilder($match, $project);
-        if(!empty($data["showIds"])){
-            $rq->addToMatch(["_id"=> ['$nin' => $data['showIds']]]);
+        $minYear = strval(intval($data['year'])-20);
+        if($data['type'] === 'movie') {
+            $keywordsKey = 'keywords.keywords';
+        } else {
+            $keywordsKey = 'keywords.results';
         }
+        $shows = [['$match'=> ['type'=> $data['type'], '_id' => ['$nin' => $data['showIds']],
+            'year' => ['$gte' => $minYear], 'adults' => ['$ne' => true]]],
+            ['$sort'=> ['popularity'=> -1]],['$skip' => ($page-1)*$limit],['$limit' => $limit]];
         if(!empty($data['genres'])){
-            $rq->addToMatch(["genres"=> ['$in' => $data['genres']]]);
+            $shows[0]['$match']+=['$or'=> [
+                ['credits.cast.id' => ['$in' => $data['castIds']]],
+                ['credits.crew.id' => ['$in'=> $data['crewIds']]],
+                [$keywordsKey => ['$in'=> $data['keywords']]],
+            ]];
         }
-        $rq->addField('rank');
-        $rq->addVar('rank', 'cast', '$credits.cast.id', $data["castIds"], 1);
-        $rq->addVar('rank', 'crew', '$credits.crew.id', $data["crewIds"], 1.6);
-        $rq->addVar('rank', 'genre', '$genres', $data["genres"], 0.8);
-        $rq->addVar('rank', 'productioncompanies', '$production_companies',
-            $data["production_companies"], 0.7);
-        $rq->addVar('rank', 'productioncompanies', '$production_companies',
-            $data["production_companies"], 0.7);
-        if ($data["type"] === 'movie') {
-            $rq->addToMatch(['release_date' => ['$gte' => "$minYear-01-01"]]);
-            $rq->addVar('rank', 'keywords', '$keywords.keywords', $data["keywords"], 1);
+        $shows = $this->findService->all(['pipelines'=> $shows, 'opts'=> ['allowUseDisk'=> true]]);
+        if(empty($shows)){
+            return $this->recommendByGenres($data);
         }
-        if ($data["type"] === 'tvshow') {
-            $rq->addToMatch(['first_air_date' => ['$gte' => "$minYear-01-01"]]);
-            $rq->addVar('rank', 'keywords', '$keywords.results', $data["keywords"], 1);
-            $rq->addVar('rank', 'networks', '$networks', $data["networks"], 1.2);
-        }
-        $pipeline = $rq->build();
-        $pipeline[]['$sort'] = ['rank' => -1];
-        $pipeline = array_merge($pipeline, $this->addLimitPipeline($limit, $page));
-        $opts = ['pipelines' => $pipeline, 'opts'=> ['allowDiskUse' => true]];
-        $result = $this->findService->allCached($opts, 'movies', 60*60*24);
 
-        return $result;
+        return $shows;
     }
+
 
     /**
      * @param $data
@@ -316,8 +284,7 @@ class RecommendatorService extends AbstractShowService
     private function normalize($data)
     {
         $result = [];
-        $normalizableValues = ['genres', 'crewIds', 'castIds', 'networks', 'keywords', 'original_language', 'casts', 'crews'];
-
+        $normalizableValues = ['genres', 'crewIds', 'castIds', 'networks', 'keywords', 'casts', 'crews'];
         foreach ($data as $k=>$v){
             if(is_array($v)){
                 $result[$k] = [];
@@ -365,12 +332,98 @@ class RecommendatorService extends AbstractShowService
             foreach ($counts as $k=>&$v) {
                 $v = $v['data'];
             }
-            if(sizeof($counts)>50) {
-                $counts = array_slice($counts, 0,5);
+            if(sizeof($counts)>10) {
+                $counts = array_slice($counts, 0,10);
             }
 
 
         return $counts;
+    }
+
+    private function rateShows(array $shows, array $data)
+    {
+        foreach ($shows as &$value){
+            $rating = 0;
+            $genresEquals = sizeof($this->intersect($value['genres'], $data['genres']))*1;
+            $keywordsKey = ($value['type'] === 'movie') ? 'keywords' : 'results';
+            $keywordsEquals = sizeof($this->intersect($value['keywords'][$keywordsKey], $data['keywords']))*3;
+            $ids = $this->getArrayIds($value['credits']['cast']);
+            $castEquals = sizeof($this->intersect($ids, $data['casts']))*1.1;
+            $ids = $this->getArrayIds($value['credits']['crew']);
+            $crewEquals = sizeof($this->intersect($ids, $data['crews']))*1.5;
+            if(in_array($value['original_language'], $data['original_language'])){
+                $rating+=2.5;
+            }
+            if($value['type'] === 'tvshow'){
+                $rating += sizeof($this->intersect($value['networks'], $data['networks']));
+            }
+            $rating = $rating + $genresEquals + $keywordsEquals + $castEquals + $crewEquals;
+            $value['rate'] = $rating;
+            unset($value['credits']);
+        }
+        usort($shows, function ($a, $b){
+            return $b['rate'] - $a['rate'];
+        });
+        $shows = array_slice($shows, 0, 30);
+        return $shows;
+    }
+
+    private function intersect(array $array1, array $array2)
+    {
+        $result = [];
+        foreach ($array2 as $key=>$value){
+            if(in_array($value, $array1)){
+                $result[] = $value;
+            }
+
+        }
+        return $result;
+    }
+
+    public function getUserFollowsShows($id)
+    {
+        $pipelines['pipelines'] = [
+            ['$match' => ['user' => new ObjectId($id), 'mode' => ['$in' => ['finalized', 'watched', 'following']]]],
+            ['$sort' => ['updated_at' => 1]],
+            ['$lookup' =>
+                [
+                    'from' => 'movies',
+                    'localField' => 'show',
+                    'foreignField' => '_id',
+                    'as' => 'shows'
+                ]],
+            ['$unwind' => ['path' => '$shows']],
+            ['$replaceRoot' => ['newRoot' => '$shows']],
+            ['$project' => ["_id" => 1, "genres" => 1, "keywords" => 1, 'credits' => 1, 'type' => 1, 'release_date' => 1,
+                'first_air_date' => 1, 'original_language' => 1]]
+        ];
+        $pipelines["pipe_order"] = ['$project' => -5];
+        $result = $this->findService->allCached($pipelines,'follows');
+        if(empty($result)) {
+            return [];
+        }
+
+        return $result;
+    }
+
+    private function recommendByGenres($data)
+    {
+        $default = ['limit' => 30, 'page' => 1, 'year' => 1970, 'popularity' => 5, 'genres' => []];
+        $data = array_merge($default, $data);
+        $limit = $data['limit'];
+        $page = $data['page'];
+        $minYear = strval(intval($data['year'])-20);
+        $shows = [['$match'=> ['type'=> $data['type'], '_id' => ['$nin' => $data['showIds']],
+            'year' => ['$gte' => $minYear], 'adults' => ['$ne' => true]]],
+            ['$sort'=> ['popularity'=> -1]],['$skip' => ($page-1)*$limit],['$limit' => $limit]];
+        if(!empty($data['genres'])){
+            $shows[0]['$match']+=['$or'=> [
+               ['genres' => ['$in'=> $data['genres']]],
+            ]];
+        }
+        $shows = $this->findService->allCached(['pipelines'=> $shows, 'opts'=> ['allowUseDisk'=> true]]);
+
+        return $shows;
     }
 
 

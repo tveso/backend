@@ -35,6 +35,9 @@ services:
         - '%env(MONGO_URI)%'
     GuzzleHttp\Client:
         class: 'GuzzleHttp\Client'
+    App\Services\:
+      resource: '../src/Services'
+      public: true
     App\Controller\:
         resource: '../src/Controller'
         tags: ['controller.service_arguments']

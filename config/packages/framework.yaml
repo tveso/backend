@@ -16,6 +16,8 @@ framework:
     #fragments: true
     php_errors:
         log: true
+    annotations:
+      cache: Doctrine\Common\Cache\MongoDBCache
 
     cache:
         # Put the unique name of your app here: the prefix seed
@@ -31,3 +33,4 @@ framework:
 
         # APCu (not recommended with heavy random-write workloads as memory fragmentation can cause perf issues)
         app: cache.adapter.apcu
+        system: cache.adapter.apcu

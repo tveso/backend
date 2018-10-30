@@ -9,7 +9,7 @@ namespace App\Services;
 
 use App\EntityManager;
 
-class StatisticsService
+class StatisticsService implements Service
 {
 
 

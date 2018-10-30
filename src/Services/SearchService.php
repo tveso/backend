@@ -11,6 +11,7 @@ use App\EntityManager;
 use App\Jobs\UpdateSearchFieldJob;
 use App\Util\PipelineBuilder\PipelineBuilder;
 use MongoDB\BSON\Regex;
+use Symfony\Component\Stopwatch\Stopwatch;
 
 class SearchService extends AbstractShowService
 {

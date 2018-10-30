@@ -10,7 +10,9 @@ use App\Jobs\UpdateSearchFieldJob;
 use App\Util\FindQueryBuilder;
 use App\Util\PipelineBuilder\PipelineBuilder;
 use MongoDB\BSON\Regex;
+use MongoDB\Model\BSONArray;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Traversable;
 
 
 class FindService extends AbstractShowService
@@ -49,7 +51,7 @@ class FindService extends AbstractShowService
     }
 
 
-    public function allCached(array $opts = [], string $collection = 'movies', int $time = 60)
+    public function allCached(array $opts = [], string $collection = 'movies', int $time = 60*60*24)
     {
         $key = md5(serialize($opts).$collection);
         $data = $this->cacheService->getItem($key);
@@ -68,10 +70,19 @@ class FindService extends AbstractShowService
         $pipeline = $qb->build();
         $options = ($opts['opts']) ?? [];
         $collection = $this->entityManager->getCollection($collection);
-        $data = iterator_to_array($collection->aggregate($pipeline, $options));
+        $aggregateResult = $collection->aggregate($pipeline, $options);
+        $data = $this->bsonArrayToArray($aggregateResult);
+
         return  $data;
+
     }
 
+    private function bsonArrayToArray(Traversable $bsonArray)
+    {
+        $array = iterator_to_array($bsonArray);
+
+        return json_decode(json_encode($array), 1);
+    }
 
 
 }

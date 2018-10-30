@@ -11,7 +11,7 @@ use Doctrine\Common\Cache\MongoDBCache;
 use Monolog\Handler\Mongo;
 use Psr\Cache\CacheItemPoolInterface;
 
-class CacheService
+class CacheService implements Service
 {
 
     /**
@@ -50,13 +50,18 @@ class CacheService
     }
 
     /**
-     * @param $key
+     * @param string $key
      * @param $data
-     * @param $param
+     * @param int $time
      */
     public function save(string $key, $data, int $time = 60)
     {
         $this->cache->save($key, $data, $time);
+    }
+
+    public function clearAll()
+    {
+        $this->cache->deleteAll();
     }
 
 

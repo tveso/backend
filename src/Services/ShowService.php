@@ -8,6 +8,7 @@ namespace App\Services;
 
 
 use App\Auth\UserService;
+use Symfony\Component\Stopwatch\Stopwatch;
 
 class ShowService extends AbstractShowService
 {
@@ -34,7 +35,7 @@ class ShowService extends AbstractShowService
     }
 
 
-    public function setUserDataIntoShows($shows, array $pipelines = [])
+    public function setUserDataIntoShows($shows, array $pipelines = [], $addLimit = true)
     {
         $ids = $this->getIds($shows);
         $query['pipelines']= [
@@ -42,10 +43,12 @@ class ShowService extends AbstractShowService
         ];
         $query['pipelines'] = array_merge($query['pipelines'], $pipelines,
             $this->addUserRatingPipeLine($this->user->getId()),
-                $this->addFollowPipeLine($this->user->getId()),
-            $this->addLimitPipeline());
-
+                $this->addFollowPipeLine($this->user->getId()));
+        if($addLimit) {
+            $query['pipelines'] = array_merge($query['pipelines'], $this->addLimitPipeline());
+        }
         return $this->findService->all($query);
+
     }
 
     public function filter(array $opts = [])
@@ -57,6 +60,7 @@ class ShowService extends AbstractShowService
         $opts['pipe_order'] = ['$match' => 6, '$sort' => 4,'$project' => 3];
         $data = $this->findService->all($opts, 'movies');
         $data = $this->setUserDataIntoShows($data, array_merge($this->getProjection(),$this->addSortPipeline($sort)));
+
         return  $data;
     }
 
@@ -70,5 +74,16 @@ class ShowService extends AbstractShowService
         }, $shows);
 
         return array_unique($result);
+    }
+
+    /**
+     * @param $ids
+     * @return false|mixed
+     */
+    public function getManyById($ids)
+    {
+        $query['pipelines'] = [['$match' => ['_id'=> ['$in'=> $ids]]]];
+
+        return $this->findService->allCached($ids);
     }
 }

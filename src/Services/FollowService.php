@@ -15,7 +15,7 @@ use App\EntityManager;
 use MongoDB\BSON\ObjectId;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 
-class FollowService
+class FollowService implements Service
 {
     /**
      * @var FindService

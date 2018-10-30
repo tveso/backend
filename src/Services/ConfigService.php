@@ -8,7 +8,7 @@ use App\EntityManager;
 use App\Services\TheMovieDb\TheMovieDbClient;
 use App\Util\PipelineBuilder\PipelineBuilder;
 
-class ConfigService
+class ConfigService implements Service
 {
 
     /**

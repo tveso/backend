@@ -7,22 +7,21 @@
 namespace App\Tests\Services;
 
 
+use App\Services\CacheProxyService;
 use App\Services\PeopleService;
 use App\Tests\AbstractTest;
+use MongoDB\Model\BSONDocument;
 
 class PeopleServiceTest extends AbstractTest
 {
 
 
-    /**
-     * @var BSONDocument $document
-     * @var PeopleService $service
-     */
-    public function testFindAllPeople()
+    public function testCacheTrait()
     {
-        $this->logIn();
-        /**
-         * @var PeopleService $service
-         */
+        /** @var CacheProxyService $service */
+        $service = self::$container->get('App\Services\CacheProxyService');
+        $peopleService = self::$container->get('App\Services\PeopleService');
+        $service->setService($peopleService);
+        dump($service->daasd());
     }
 }

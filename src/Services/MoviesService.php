@@ -69,17 +69,12 @@ class MoviesService extends AbstractShowService
      */
     public function popular()
     {
-        $key = md5('popular_movies');
-        $data = $this->cacheService->getItem($key);
-        if(!$this->cacheService->hasItem($key)){
-            $query['type'] = 'movie';
-            $query['pipelines'] = array_merge($this->addSortPipeline('popularity'),
-                $this->addLimitPipeline(30, 1));
-            $data = $this->findService->all($query);
-            $this->cacheService->save($key, $data, 60*60*24);
-        }
-
-        return $this->showService->setUserDataIntoShows($data, $this->getProjection());
+        $query['type'] = 'movie';
+        $query['sort'] = 'popularity';
+        $query['pipelines'] = $this->addLimitPipeline();
+        $data = $this->findService->all($query);
+        $pipelines = array_merge([['$sort' => ['popularity' => -1]]], $this->getProjection());
+        return $this->showService->setUserDataIntoShows($data, $pipelines);
     }
 
     public function upcoming()
@@ -95,7 +90,7 @@ class MoviesService extends AbstractShowService
         $query['_id'] = $id;
         $query['pipelines'] = array_merge($this->addLimitPipeline(1, 1), $this->addUserRatingPipeLine($this->user->getId()),
             $this->addFollowPipeLine($this->user->getId()));
-        $result = $this->findService->allCached($query);
+        $result = $this->findService->allCached($query, 'movies', 60*60*24);
         $result = $this->showService->setUserDataIntoShows($result);
         if(isset($result[0])) return $result[0];
         return ["_id"=> null];

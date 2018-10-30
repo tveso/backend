@@ -17,7 +17,7 @@ use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Validator\Exception\ValidatorException;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
-class CommentsService
+class CommentsService implements Service
 {
     /**
      * @var EntityManager
@@ -90,7 +90,7 @@ class CommentsService
         }
     }
 
-    public function getAll(string $id, int $page = 1)
+    public function getAll($id, int $page = 1)
     {
         $userId = $this->user->getId();
         $limit = 100;
@@ -121,7 +121,10 @@ class CommentsService
                 ]
         ];
         $array[] = [
-            '$unwind' => '$author'
+            '$unwind' => [
+                'path' => '$author',
+                'preserveNullAndEmptyArrays' => true
+                ]
         ];
         $array[] = [
             '$addFields' => [

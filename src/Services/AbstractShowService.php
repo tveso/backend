@@ -10,7 +10,7 @@ namespace App\Services;
 use App\Util\PipelineBuilder;
 use MongoDB\BSON\ObjectId;
 
-abstract class AbstractShowService
+abstract class AbstractShowService implements Service
 {
 
     public function addUserRatingPipeLine(string $userId)
@@ -79,7 +79,7 @@ abstract class AbstractShowService
     public function addLimitPipeline(int $limit = 30, int $page = 1)
     {
         $skip = ($page- 1)*$limit;
-        return [['$skip'=> $skip], ['$limit' => $limit]];
+        return [['$limit' => $limit], ['$skip'=> $skip]];
     }
 
     public function addSortPipeline(string $property)

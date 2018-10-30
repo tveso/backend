@@ -10,9 +10,11 @@ namespace App\Services;
 use App\EntityManager;
 use App\Jobs\UpdateSearchFieldJob;
 use App\Util\PipelineBuilder\PipelineBuilder;
+use Doctrine\Common\Annotations\Reader;
 use MongoDB\BSON\Regex;
+use Symfony\Component\Stopwatch\Stopwatch;
 
-class PeopleService
+class PeopleService extends AbstractShowService
 {
 
     /**
@@ -23,12 +25,16 @@ class PeopleService
      * @var FindService
      */
     private $findService;
+    /**
+     * @var ShowService
+     */
+    private $showService;
 
-    public function __construct(EntityManager $entityManager, FindService $findService)
+    public function __construct(EntityManager $entityManager, FindService $findService, ShowService $showService)
     {
-
         $this->entityManager = $entityManager;
         $this->findService = $findService;
+        $this->showService = $showService;
     }
 
 
@@ -40,12 +46,13 @@ class PeopleService
         $sort = ($opts["sort"]) ?? 'popularity';
         $pipelineBuilder = new PipelineBuilder();
         $pipelineBuilder->addPipe('$match')->addField('adult', false);
-        $pipelineBuilder->addPipe('$project')->addFields(['name' => 1, 'profile_path'=>1, 'external_ids'=> 1,
-            'birthday'=> 1,'gender'=>1, 'popularity'=> 1,'known_for_department'=> 1, 'place_of_birth'=> 1,"id" => 1]);
         $pipelineBuilder->addPipe('$sort')->addField($sort, -1);
         $pipelineBuilder->addPipe('$skip', $skip);
         $pipelineBuilder->addPipe('$limit', $limit);
+        $pipelineBuilder->addPipe('$project')->addFields(['name' => 1, 'profile_path'=>1, 'external_ids'=> 1,
+            'birthday'=> 1,'gender'=>1, 'popularity'=> 1,'known_for_department'=> 1, 'place_of_birth'=> 1,"id" => 1]);
         $opts['pipelines'] = $pipelineBuilder->getQuery();
+        $opts['pipe_order'] = [];
         $result = $this->findService->allCached($opts, 'people');
 
         return $result;
@@ -73,33 +80,51 @@ class PeopleService
     {
         $pb = new PipelineBuilder();
         $pb->addPipe('$match', ["_id" => $id]);
-        $pb->addPipe('$lookup')->setValue([
-            'from' =>'movies',
-            'localField' => '_id',
-            'foreignField' => 'credits.cast.id',
-            'as' => 'cast'
-        ]);
-        $pb->addPipe('$lookup')->setValue([
-            'from' =>'movies',
-            'localField' => '_id',
-            'foreignField' => 'credits.crew.id',
-            'as' => 'crew'
-        ]);
         $pb->addPipe('$project')->setValue(['name' => 1, 'profile_path'=>1, 'external_ids'=> 1,
                 'birthday'=> 1,'gender'=>1, 'popularity'=> 1,'known_for_department'=> 1, 'place_of_birth'=> 1,
-                'imdb_id' => 1, 'id' => 1, 'biography' => 1,'tagged_images' => 1, 'images' => 1, 'type' => 1,
-                'cast._id' => 1, 'cast.title' => 1, 'cast.year' => 1, 'cast.name' => 1, 'cast.vote_count' => 1, 'cast.vote_item' => 1,
-                'cast.genres' => 1, 'cast.poster_path' => 1,'cast.backdrop_path' => 1,'cast.rating'  => 1, 'cast.vote_average' => 1,
-                'crew._id' => 1, 'crew.title' =>  1, 'crew.year' => 1, 'crew.name' => 1, 'crew.vote_count' => 1, 'crew.vote_item' =>1,
-                'crew.genres' => 1, 'crew.poster_path' => 1,'crew.backdrop_path' => 1,'crew.rating'  => 1, 'crew.vote_average' => 1,
-                'cast.type' => 1, 'crew.type' => 1]
-        );
-        $opts =['pipelines' => $pb->getQuery(), 'pipe_order' => ['$match' => 4, '$lookup'=> 3, '$project' => 1]];
-        $result = $this->findService->allCached($opts, 'people');
+                'imdb_id' => 1, 'id' => 1, 'biography' => 1,'tagged_images' => 1, 'images' => 1, 'type' => 1
+                ]);
+        $opts =['pipelines' => $pb->getQuery()];
+        $result = $this->findService->all($opts, 'people');
         if(empty($result)) {
             return $result;
         }
-        return $result[0];
+        $result = $result[0];
 
+        return $result;
+    }
+
+    public function getShowsByPerson(int $id, int $page = 1, int $limit = 30)
+    {
+        $pb = new PipelineBuilder();
+        $pb->addPipe('$match')->setValue(['$or'=> [['credits.cast.id' => $id], ['credits.crew.id' => $id]]]);
+        $pb->addPipe('$sort')->setValue(['popularity'=> -1]);
+        $pb->addPipe('$skip')->setValue(($page-1)*$limit);
+        $pb->addPipe('$limit')->setValue($limit);
+        $pb->addPipe('$project')->setValue(["_id" => 1]);
+        $opts['pipelines'] = $pb->getQuery();
+        $opts['pipe_order'] = [];
+        $result = $this->findService->allCached($opts, 'movies', 60*60*24);
+        $project = new PipelineBuilder();
+        $project->addPipe('$project')->setValue($this->getSimpleProject()+['credits' => 1]);
+        $project->addPipe('$sort')->setValue(['year'=> -1]);
+        $project->addPipe('$limit')->setValue($limit);
+        $result = $this->showService->setUserDataIntoShows($result, $project->getQuery(), false);
+        $result = $this->filterCreditsPerson($result, $id);
+
+        return $result;
+    }
+
+    private function filterCreditsPerson($result, $id)
+    {
+        $filterFunction = function ($a) use ($id) {
+            return $a["id"] === $id;
+        };
+        foreach ($result as $key=>$value) {
+            $result[$key]['credits']['cast'] = array_values(array_filter($value['credits']['cast'], $filterFunction));
+            $result[$key]['credits']['crew'] = array_values(array_filter($value['credits']['crew'], $filterFunction));
+        }
+
+        return $result;
     }
 }

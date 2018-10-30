@@ -18,7 +18,6 @@ class PipelineBuilderTest extends AbstractTest
         $pipe = $pipelines->addPipe('$project')->addFields(['key'=> 1, '_id' => 1, 'sofa' => 0]);
         $let = $pipe->addField('let');
         $let->addField('let', 'lol');
-        dump($pipelines->getQuery());
     }
 
     function testAdvance()

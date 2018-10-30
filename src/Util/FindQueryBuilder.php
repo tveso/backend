@@ -35,7 +35,8 @@ class FindQueryBuilder
         'page' => 'addPage',
         'limit' => null,
         'gender' => 'inArray',
-        'place_of_birth' => 'setPlaceOfBirth'
+        'place_of_birth' => 'setPlaceOfBirth',
+        'released_shows' => 'getReleasedShows'
     ];
     /**
      * @var PipelineBuilder\PipelineBuilder
@@ -72,6 +73,7 @@ class FindQueryBuilder
 
         return $this->pipelineBuilder->getQuery();
     }
+
 
     /**
      * @param $value
@@ -110,6 +112,27 @@ class FindQueryBuilder
         $matchPipe->setValue($result);
     }
 
+    /**
+     * @return PipelineBuilder\PipelineBuilder
+     */
+    public function getPipelineBuilder(): PipelineBuilder\PipelineBuilder
+    {
+        return $this->pipelineBuilder;
+    }
+
+    private function getReleasedShows($value)
+    {
+        if($value === false) {
+            return;
+        }
+        $actualDate = new \DateTime('now');
+        $actualDate = $actualDate->format('Y-m-d');
+
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue(['$or'=> [['first_air_date' =>
+            ['$lte' => $actualDate]], ['release_date'=> ['$lte' => $actualDate]]]]);
+    }
+
     private function getMaxSeasons($value)
     {
         $result = [];
@@ -141,6 +164,7 @@ class FindQueryBuilder
         $value['$and'][]['year'] = $result;
         $matchPipe->setValue($value);
     }
+
 
     /**
      * @param $value
@@ -231,7 +255,14 @@ class FindQueryBuilder
 
     public function addSortPipeline($value)
     {
-        $this->pipelineBuilder->addPipe('$sort')->addField($value, -1);
+        if($value === null or $value === '') return;
+        $chars = str_split($value);
+        $orderMode = -1;
+        if($chars[0] === "!") {
+            $orderMode = 1;
+            $value = substr($value, 1);
+        }
+        $this->pipelineBuilder->addPipe('$sort')->addField($value, $orderMode);
     }
 
     private function getDateFilter($value)
@@ -265,14 +296,12 @@ class FindQueryBuilder
         }
         $duration = $value;
         $matches = $this->quantityExpresion($duration);
-        if(!empty($matches)){
-            foreach ($matches["symbol"] as $key=>$value){
-                if($value==='') continue;
-                $operator = $this->getOperator($value);
-                $date = $matches['number'][$key];
-                $field = 'next_episode_to_air.air_date';
-                $result[$field][$operator] = $date;
-            }
+        foreach ($matches["symbol"] as $key=>$value){
+            if($value==='') continue;
+            $operator = $this->getOperator($value);
+            $date = $matches['number'][$key];
+            $field = 'next_episode_to_air.air_date';
+            $result[$field][$operator] = $date;
         }
 
         $matchPipe = $this->pipelineBuilder->getPipe('$match', []);

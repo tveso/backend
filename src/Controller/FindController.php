@@ -86,35 +86,6 @@ class FindController extends AbstractController
         return $this->jsonResponseCached($data, $request);
     }
 
-    /**
-     * @param Request $request
-     * @return \Symfony\Component\HttpFoundation\JsonResponse
-     * @Route("/recommend/user", name="recommenduser")
-     * @throws \Exception
-     */
-    public function userRecommendations(Request $request)
-    {
-        $page = ($request->query->get('page')) ?? 1;
-        $page = intval($page);
-        $data = $this->recommenatorService->getShowsRecommendToUser($page);
-
-        return $this->jsonResponseCached($data, $request);
-    }
-
-    /**
-     * @param string $id
-     * @param Request $request
-     * @return \Symfony\Component\HttpFoundation\JsonResponse
-     * @Route("/recommend/{id}", name="recommend")
-     * @throws \Exception
-     */
-    public function recommend(string $id, Request $request)
-    {
-        $page = ($request->query->get('page')) ?? 1;
-        $data = $this->recommenatorService->recommendByShowId($id, $page);
-
-        return $this->jsonResponseCached($data, $request);
-    }
 
 
 
