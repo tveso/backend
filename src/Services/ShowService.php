@@ -55,11 +55,13 @@ class ShowService extends AbstractShowService
     {
         $page = ($opts["page"]) ?? 1;
         $limit = min(($opts["limit"]) ?? 30,100);
+        unset($opts['limit']);
         $sort = ($opts["sort"]) ?? 'popularity';
-        $opts['pipelines']= array_merge($this->addSortPipeline($sort), $this->addLimitPipeline($limit, $page), $this->getProjection());
+        $opts['pipelines']= array_merge($this->addSortPipeline($sort), $this->addLimitPipeline($limit, $page),
+            $this->getProjection(),$this->addUserRatingPipeLine($this->user->getId()),
+            $this->addFollowPipeLine($this->user->getId()));
         $opts['pipe_order'] = ['$match' => 6, '$sort' => 4,'$project' => 3];
         $data = $this->findService->all($opts, 'movies');
-        $data = $this->setUserDataIntoShows($data, array_merge($this->getProjection(),$this->addSortPipeline($sort)));
 
         return  $data;
     }
@@ -85,5 +87,11 @@ class ShowService extends AbstractShowService
         $query['pipelines'] = [['$match' => ['_id'=> ['$in'=> $ids]]]];
 
         return $this->findService->allCached($ids);
+    }
+
+    public function setUserDataPipeline($data)
+    {
+        return  array_merge($data, $this->addUserRatingPipeLine($this->user->getId()),
+            $this->addFollowPipeLine($this->user->getId()));
     }
 }

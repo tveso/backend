@@ -10,5 +10,5 @@ namespace App\Entity;
 class Movie extends Entity
 {
 
-     const FOLLOW_MODES =['pending', 'watched', 'favorited'];
+     const FOLLOW_MODES =['pending', 'watched', 'favorite'];
 }

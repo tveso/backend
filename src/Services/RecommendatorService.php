@@ -105,9 +105,15 @@ class RecommendatorService extends AbstractShowService
         if(is_null($show)){
             return $result;
         }
+        $key = md5('recommended'.$id.$page  );
+        $result = $this->cacheService->getItem($key);
+        if($this->cacheService->hasItem($key)){
+            return $result;
+        }
         $query = ["shows" => [$id], "type" => $show['type'], 'page' => $page,'mode'=>'chose'];
-
-        return $this->findRecommendedShows($query)['shows'];
+        $result = $this->findRecommendedShows($query)['shows'];
+        $this->cacheService->save($key, $result, 60*60*24);
+        return $result;
     }
 
 
@@ -155,12 +161,12 @@ class RecommendatorService extends AbstractShowService
         $data['showIds'] = array_merge($data['showIds'], $userShows);
         $normalizedData = $this->normalize($data);
         $result = $this->recommend($normalizedData);
-            $result = $this->showService->setUserDataIntoShows($result,
-                array_merge([['$sort'=> ['popularity' => -1]], ['$project' =>  ["title"=>1, "name"=>1, "original_title"=> 1,
-                    "original_name"=>1, "poster_path"=>1, 'original_language' => 1,
-                    "backdrop_path"=>1, "ratings"=>1, "vote_average"=>1, "vote_count"=> 1, 'type' => 1, 'userRate' => 1,
-                    "year"=> 1, "release_date"=> 1, "first_air_date" => 1, 'userFollow' => 1, "next_episode_to_air"=> 1,
-                    'rank' => 1, 'popularity'=> 1, 'rating' => 1, 'genres'=> 1, 'networks' => 1, 'credits'=> 1, 'keywords' => 1]]]));
+        $result = $this->showService->setUserDataIntoShows($result,
+            array_merge([['$sort'=> ['popularity' => -1]], ['$project' =>  ["title"=>1, "name"=>1, "original_title"=> 1,
+                "original_name"=>1, "poster_path"=>1, 'original_language' => 1,
+                "backdrop_path"=>1, "ratings"=>1, "vote_average"=>1, "vote_count"=> 1, 'type' => 1, 'userRate' => 1,
+                "year"=> 1, "release_date"=> 1, "first_air_date" => 1, 'userFollow' => 1, "next_episode_to_air"=> 1,
+                'rank' => 1, 'popularity'=> 1, 'rating' => 1, 'genres'=> 1, 'networks' => 1, 'credits'=> 1, 'keywords' => 1]]]));
         $resultAux = $this->rateShows($result, $normalizedData);
         $result = [];
         $result['shows'] = $resultAux;
@@ -198,7 +204,9 @@ class RecommendatorService extends AbstractShowService
         if(isset($show["networks"])){
             $data["networks"][] = $data['networks'];
         }
-        $data["original_language"]=array_merge($data['original_language'], [$show['original_language']]);
+        if($show['original_language'] !== 'en'){
+            $data["original_language"]=array_merge($data['original_language'], [$show['original_language']]);
+        }
         $data['casts']= array_merge($data['casts'], $show['credits']['cast']);
         $data['crews']= array_merge($data['crews'], $show['credits']['crew']);
     }
@@ -247,11 +255,11 @@ class RecommendatorService extends AbstractShowService
      */
     public function recommend(array $data)
     {
-        $default = ['limit' => 30, 'page' => 1, 'year' => 1970, 'popularity' => 5, 'genres' => []];
+        $default = ['limit' => 30, 'page' => 1, 'year' => 1990, 'popularity' => 5, 'genres' => []];
         $data = array_merge($default, $data);
         $limit = $data['limit'];
         $page = $data['page'];
-        $minYear = strval(intval($data['year'])-20);
+        $minYear = strval(intval($data['year'])-15);
         if($data['type'] === 'movie') {
             $keywordsKey = 'keywords.keywords';
         } else {
@@ -259,12 +267,13 @@ class RecommendatorService extends AbstractShowService
         }
         $shows = [['$match'=> ['type'=> $data['type'], '_id' => ['$nin' => $data['showIds']],
             'year' => ['$gte' => $minYear], 'adults' => ['$ne' => true]]],
-            ['$sort'=> ['popularity'=> -1]],['$skip' => ($page-1)*$limit],['$limit' => $limit]];
+            ['$sort'=> ['popularity'=> -1]],['$limit' => $limit],['$skip' => ($page-1)*$limit]];
         if(!empty($data['genres'])){
             $shows[0]['$match']+=['$or'=> [
                 ['credits.cast.id' => ['$in' => $data['castIds']]],
                 ['credits.crew.id' => ['$in'=> $data['crewIds']]],
                 [$keywordsKey => ['$in'=> $data['keywords']]],
+                ['original_language' => ['$in' => $data['original_language']]]
             ]];
         }
         $shows = $this->findService->all(['pipelines'=> $shows, 'opts'=> ['allowUseDisk'=> true]]);
@@ -344,6 +353,10 @@ class RecommendatorService extends AbstractShowService
     {
         foreach ($shows as &$value){
             $rating = 0;
+            if(!isset($value['genres'])) {
+                $value['rate'] = 0;
+                continue;
+            }
             $genresEquals = sizeof($this->intersect($value['genres'], $data['genres']))*1;
             $keywordsKey = ($value['type'] === 'movie') ? 'keywords' : 'results';
             $keywordsEquals = sizeof($this->intersect($value['keywords'][$keywordsKey], $data['keywords']))*3;
@@ -398,7 +411,7 @@ class RecommendatorService extends AbstractShowService
                 'first_air_date' => 1, 'original_language' => 1]]
         ];
         $pipelines["pipe_order"] = ['$project' => -5];
-        $result = $this->findService->allCached($pipelines,'follows');
+        $result = $this->findService->all($pipelines,'follows');
         if(empty($result)) {
             return [];
         }

@@ -8,11 +8,13 @@ namespace App\Controller;
 
 
 use App\Auth\UserService;
+use App\Services\EpisodeService;
 use App\Services\FindService;
 use App\Services\MoviesService;
 use App\Services\RecommendatorService;
 use App\Services\TvShowService;
 use Symfony\Component\Routing\Annotation\Route;
+use Symfony\Component\Stopwatch\Stopwatch;
 
 /**
  * @Route("/api/main", name="main_")
@@ -40,9 +42,13 @@ class MainController extends AbstractController
      * @var UserService
      */
     private $userService;
+    /**
+     * @var EpisodeService
+     */
+    private $episodeService;
 
     public function __construct(FindService $findService, TvShowService $tvShowService, MoviesService $moviesService,
-                                RecommendatorService $recommendatorService, UserService $userService)
+                                RecommendatorService $recommendatorService, UserService $userService, EpisodeService $episodeService)
     {
 
         $this->findService = $findService;
@@ -50,6 +56,7 @@ class MainController extends AbstractController
         $this->moviesService = $moviesService;
         $this->recommendatorService = $recommendatorService;
         $this->userService = $userService;
+        $this->episodeService = $episodeService;
     }
 
     /**
@@ -60,11 +67,9 @@ class MainController extends AbstractController
     public function getMainData()
     {
         $result = [];
-        $result['popularMovies'] = $this->moviesService->popular();
-        $result['playingTvshows'] = $this->tvShowService->upcoming();
-        $type = (random_int(0,1)===0) ? 'movie' : 'tvshow';
-        $result['userRecommended'] = $this->recommendatorService->findRecommendedShows(
-            ['mode' => 'automatic', 'page' => 1, 'type' => $type, 'length'=>1]);
+        $result['popularMovies'] = $this->moviesService->popular(11);
+        $result['playingTvshows'] = $this->tvShowService->onAir(6);
+        $result['pendingEpisodes'] = $this->episodeService->findPendingEpisodes(7);
 
         return $this->jsonResponse($result);
     }

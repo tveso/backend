@@ -1,6 +1,7 @@
 
 parameters:
     locale: 'es'
+    avatar_directory: '%kernel.project_dir%/public/uploads/avatars'
 
 services:
     _defaults:
@@ -43,6 +44,14 @@ services:
         tags: ['controller.service_arguments']
     App\Auth\:
       resource: '../src/Auth'
+    Aws\S3\S3Client:
+      class: 'Aws\S3\S3Client'
+      arguments:
+          - {profile: 'default', 'version': 'latest', region: 'eu-west-3'}
+    Aws\Sdk:
+      class: 'Aws\Sdk'
+      arguments:
+        - {'version': 'latest', region: 'eu-west-3'}
     App\Auth\UserProvider:
       class: 'App\Auth\UserProvider'
     App\Services\TheMovieDb\TheMovieDbClient:

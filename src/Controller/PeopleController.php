@@ -41,7 +41,7 @@ class PeopleController extends AbstractController
     public function all(Request $request)
     {
         $data = $request->query->all();
-        return $this->jsonResponse($this->peopleService->all($data));
+        return $this->json($this->peopleService->all($data));
     }
 
 
@@ -56,7 +56,7 @@ class PeopleController extends AbstractController
         if(is_null($search) or !$search){
             return $this->jsonResponse([]);
         }
-        return $this->jsonResponse($this->peopleService->findPlaceOfBirths($search));
+        return $this->json($this->peopleService->findPlaceOfBirths($search));
     }
 
     /**
@@ -66,8 +66,9 @@ class PeopleController extends AbstractController
      */
     public function getShows(string $id, Request $request)
     {
-        $result = $this->peopleService->getShowsByPerson($id, 1, 1500);
-        return $this->jsonResponse($result);
+        $options = $request->query->all();
+        $result = $this->peopleService->getShowsByPerson($id, $options);
+        return $this->json($result);
     }
 
     /**
@@ -80,7 +81,7 @@ class PeopleController extends AbstractController
     {
         $result = $this->peopleService->getById($id);
         $result['comments'] = $this->commentsService->getAll($result["_id"]);
-        return $this->jsonResponse($result);
+        return $this->json($result);
     }
 
 

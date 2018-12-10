@@ -52,7 +52,7 @@ class ImdbRatingsCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         try{
-            $this->imdbRatingsJob->action();
+            $this->imdbRatingsJob->updateBdEpisodeFields();
         } catch (\Exception $e){
             echo $e->getMessage()."\n";
             $this->logger->error($e->getMessage());

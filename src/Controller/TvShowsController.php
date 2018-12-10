@@ -80,6 +80,22 @@ class TvShowsController extends AbstractController
         return $this->jsonResponseCached($data, $request);
     }
 
+    /**
+     * @Route("/{id}/episodes", name="gettvshowsseasonepisodes")
+     * @param string $id
+     * @param Request $request
+     * @return object|\Symfony\Component\HttpFoundation\JsonResponse
+     */
+    public function getTvShowsSeasonEpisodes(string $id, Request $request)
+    {
+        $seasonNumber = $request->get('season') ?? 1;
+        $seasonNumber = intval($seasonNumber);
+        $data = $this->tvshowService->getTvShowsSeasonEpisodes($id, $seasonNumber);
+
+        return $this->jsonResponse($data);
+    }
+
+
 
     /**
      * @Route("/{id}/update/{season}", name="updateepisodeseasons")

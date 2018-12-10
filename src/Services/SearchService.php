@@ -42,18 +42,17 @@ class SearchService extends AbstractShowService
         $this->entityManager = $entityManager;
         $this->cacheService = $cacheService;
     }
-    public function search(string $string, $limit = 100, $page = 1)
+    public function search(string $string, $limit = 100, $page = 1, $advance = false)
     {
-        $cacheKey = md5($string.$limit.$page);
+        $cacheKey = md5($string.$limit.$page.$advance);
         if ($this->cacheService->hasItem($cacheKey)){
             return $this->cacheService->getItem($cacheKey);
         }
         $results = $this->textSearch($string, $limit, $page);
-        if(empty($results)){
-            $results = $this->patternSearch($string,$limit,$page);
+        if($advance === true){
+            $peopleResults = $this->searchPeople($string, $limit, $page);
+            $results = array_merge($results, $peopleResults);
         }
-        $peopleResult =  $this->searchPeople($string, $limit, $page);
-        $results = array_merge($results, $peopleResult);
         $this->cacheService->save($cacheKey, $results, 60*60*24);
         return $results;
     }
@@ -94,8 +93,8 @@ class SearchService extends AbstractShowService
         $pipelineBuilder->addPipe('$limit', $limit);
         $pipelineBuilder->addPipe('$project')->addFields($this->getSimpleProject()+['score' => ['$meta' => "textScore"]]);
         $query['pipelines'] = $pipelineBuilder->getQuery();
-
-        return $this->findService->allCached($query);
+        $query['opts']=['allowDiskUsage' => 1];
+        return $this->findService->all($query);
     }
 
     private function searchPeople($string, $limit, $page)
@@ -110,7 +109,7 @@ class SearchService extends AbstractShowService
         $pipelineBuilder->addPipe('$project')->addFields(['name' => 1,
             'known_for_department' => 1, 'gender'=> 1, 'profile_path'=>1,'id'=> 1,'popularity'=>1, 'type' => 1]);
         $query['pipelines'] = $pipelineBuilder->getQuery();
-        return $this->findService->allCached($query, 'people');
+        return $this->findService->all($query, 'people');
     }
 
 }

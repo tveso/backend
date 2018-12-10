@@ -9,6 +9,7 @@ use App\EntityManager;
 use App\Util\FindQueryBuilder;
 use Doctrine\Common\Cache\MongoDBCache;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
+use Symfony\Component\Stopwatch\Stopwatch;
 
 
 class MoviesService extends AbstractShowService
@@ -65,21 +66,22 @@ class MoviesService extends AbstractShowService
 
 
     /**
+     * @param int $limit
      * @return array
      */
-    public function popular()
+    public function popular(int $limit = 30)
     {
         $query['type'] = 'movie';
         $query['sort'] = 'popularity';
-        $query['pipelines'] = $this->addLimitPipeline();
-        $data = $this->findService->all($query);
+        $query['pipelines'] = $this->addLimitPipeline($limit);
+        $data = $this->findService->allCached($query,'movies', 60*60*24);
         $pipelines = array_merge([['$sort' => ['popularity' => -1]]], $this->getProjection());
-        return $this->showService->setUserDataIntoShows($data, $pipelines);
+        $result = $this->showService->setUserDataIntoShows($data, $pipelines);
+        return $result;
     }
 
     public function upcoming()
     {
-
 
         return [];
     }
@@ -90,10 +92,9 @@ class MoviesService extends AbstractShowService
         $query['_id'] = $id;
         $query['pipelines'] = array_merge($this->addLimitPipeline(1, 1), $this->addUserRatingPipeLine($this->user->getId()),
             $this->addFollowPipeLine($this->user->getId()));
-        $result = $this->findService->allCached($query, 'movies', 60*60*24);
-        $result = $this->showService->setUserDataIntoShows($result);
+        $result = $this->showService->setUserDataIntoShows([["_id"=> $id]]);
         if(isset($result[0])) return $result[0];
-        return ["_id"=> null];
+        return null;
     }
 
 

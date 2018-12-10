@@ -55,7 +55,7 @@ class FindService extends AbstractShowService
     {
         $key = md5(serialize($opts).$collection);
         $data = $this->cacheService->getItem($key);
-        if(!$data or is_null($data)){
+        if(!$this->cacheService->hasItem($key)){
             $data = $this->all($opts, $collection);
             $this->cacheService->save($key, $data, $time);
         }
@@ -66,21 +66,32 @@ class FindService extends AbstractShowService
 
     public function all(array $opts = [], string $collection = 'movies')
     {
-        $qb = new FindQueryBuilder($opts);
-        $pipeline = $qb->build();
-        $options = ($opts['opts']) ?? [];
+        $pipelineData = $this->getPipeline($opts);
+        $pipeline = $pipelineData['pipeline'];
+        $options = $pipelineData['opts'];
         $collection = $this->entityManager->getCollection($collection);
         $aggregateResult = $collection->aggregate($pipeline, $options);
         $data = $this->bsonArrayToArray($aggregateResult);
 
         return  $data;
-
     }
 
-    private function bsonArrayToArray(Traversable $bsonArray)
+    public function getPipeline(array $opts = [])
     {
-        $array = iterator_to_array($bsonArray);
+        $qb = new FindQueryBuilder($opts);
+        $pipeline = $qb->build();
+        $options = ($opts['opts']) ?? [];
+        $options+=['maxTimeMS' => 30000];
 
+        return  ['pipeline' => $pipeline, 'opts' => $options];
+    }
+
+    public static function bsonArrayToArray($bsonArray)
+    {
+        if (is_array($bsonArray)) {
+            return $bsonArray;
+        }
+        $array = iterator_to_array($bsonArray);
         return json_decode(json_encode($array), 1);
     }
 

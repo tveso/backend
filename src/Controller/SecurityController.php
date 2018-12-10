@@ -8,6 +8,7 @@ namespace App\Controller;
 
 
 
+use App\Auth\Exceptions\UserRegistrationException;
 use App\Auth\UserService;
 use App\Form\UserRegistrationForm;
 use App\Services\Auth\GoogleAuthService;
@@ -20,7 +21,11 @@ use Symfony\Component\Security\Core\Authentication\AuthenticationManagerInterfac
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 use Symfony\Component\Security\Core\Exception\AuthenticationException;
+use Symfony\Component\Security\Csrf\CsrfTokenManager;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Security\Csrf\TokenGenerator\TokenGeneratorInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
+use \Symfony\Component\Security\Csrf\TokenStorage\TokenStorageInterface as CsrfTokenStorageInterface;
 
 /**
  *
@@ -37,11 +42,27 @@ class SecurityController extends AbstractController
      * @var GoogleAuthService
      */
     private $googleAuthService;
+    /**
+     * @var TokenGeneratorInterface
+     */
+    private $tokenGenerator;
+    /**
+     * @var CsrfTokenStorageInterface
+     */
+    private $tokenStorage;
+    /**
+     * @var CsrfTokenManager
+     */
+    private $csrfTokenManager;
 
-    public function __construct(UserService $userService, GoogleAuthService $googleAuthService)
+    public function __construct(UserService $userService, GoogleAuthService $googleAuthService,
+                                TokenGeneratorInterface $tokenGenerator, CsrfTokenStorageInterface $tokenStorage, CsrfTokenManagerInterface $csrfTokenManager)
     {
         $this->userService = $userService;
         $this->googleAuthService = $googleAuthService;
+        $this->tokenGenerator = $tokenGenerator;
+        $this->tokenStorage = $tokenStorage;
+        $this->csrfTokenManager = $csrfTokenManager;
     }
 
     /**
@@ -76,6 +97,20 @@ class SecurityController extends AbstractController
         $this->googleAuthService->loginOrSignUp($token);
 
         return $this->isLogged( $request,$tokenStorage, $authorizationChecker);
+    }
+
+    /**
+     * @Route("/api/security/csrf", name="csrf")
+     * @throws \Exception
+     */
+    public function csrfToken(Request $request)
+    {
+        $name = $request->get('key');
+        if(is_null($name)){
+            throw new \Exception();
+        }
+        $token = $this->csrfTokenManager->getToken($name);
+        return $this->json(['csrf_token' => $token->getValue()]);
     }
 
     /**
@@ -117,15 +152,13 @@ class SecurityController extends AbstractController
     {
         $errors = $validator->validate($user);
         if(count($errors)>0){
-
             return $this->noValidPostParamsResponse($errors);
         }
         try{
             $user = $this->userService->registerFromFrom($user);
             $this->userService->login(["_id" => $user['_id']]);
-        } catch (\Exception $exception){
-            var_dump($exception);
-            return $this->error(500, "Couldn't register user");
+        } catch (UserRegistrationException $exception){
+            return $this->error(400, "Couldn't register user", ['errors' => $exception->getErrors()]);
         }
 
         return $this->isLogged($request,  $tokenStorage, $authorizationChecker);

@@ -10,5 +10,5 @@ namespace App\Entity;
 class TvShow extends Entity
 {
 
-     const FOLLOW_MODES =['following', 'pending', 'finalized', 'favorited', 'finalized'];
+     const FOLLOW_MODES =['following', 'pending', 'finalized', 'favorite'];
 }

@@ -44,6 +44,13 @@ class TmdbPeopleService
         return json_decode($response,1);
     }
 
+    public function getShowsByPerson($tmdb_id)
+    {
+        $response = $this->themoviedb->request("person/$tmdb_id/combined_credits");
+
+        return json_decode($response,1);
+    }
+
 
 
 }

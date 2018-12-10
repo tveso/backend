@@ -62,7 +62,6 @@ class MoviesController extends AbstractController
      */
     public function upcoming()
     {
-        dump('ey');
         $data = $this->moviesService->upcoming();
 
         return $this->jsonResponse($data);
@@ -79,6 +78,9 @@ class MoviesController extends AbstractController
     public function getMovie(string $id, Request $request)
     {
         $data = $this->moviesService->getById($id);
+        if(is_null($data)) {
+            throw new \InvalidArgumentException();
+        }
         $data['comments'] = $this->commentsService->getAll($data["_id"]);
 
         return $this->jsonResponseCached($data, $request);

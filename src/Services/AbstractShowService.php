@@ -13,11 +13,11 @@ use MongoDB\BSON\ObjectId;
 abstract class AbstractShowService implements Service
 {
 
-    public function addUserRatingPipeLine(string $userId)
+    public function addUserRatingPipeLine(string $userId, string $idname = '_id')
     {
         return [['$lookup' => [
             'from' => 'ratings',
-            'let' => ['mid'=> '$_id'],
+            'let' => ['mid'=> '$'.$idname],
             'pipeline' => [
                 ['$match' => [
                     '$expr' => [
@@ -29,10 +29,12 @@ abstract class AbstractShowService implements Service
                 ]]
             ],
             'as' => 'userRate'
-        ]],  ['$unwind'=>[
+        ]],
+            ['$unwind'=>[
             'path'=> '$userRate',
             'preserveNullAndEmptyArrays' => true
-        ]]];
+        ]]
+        ];
     }
 
     public function addShowsPipeLines(string $userId)
@@ -44,11 +46,11 @@ abstract class AbstractShowService implements Service
     }
 
 
-    public function addFollowPipeLine(string $userId)
+    public function addFollowPipeLine(string $userId, string $idname = '_id')
     {
         return [['$lookup' => [
             'from' => 'follows',
-            'let' => ['mid'=> '$_id'],
+            'let' => ['mid'=> '$'.$idname],
             'pipeline' => [
                 ['$match' => [
                     '$expr' => [
@@ -73,7 +75,7 @@ abstract class AbstractShowService implements Service
         return ["title"=>1, "name"=>1, "original_title"=> 1,"original_name"=>1, "poster_path"=>1,
             "backdrop_path"=>1, "ratings"=>1, "vote_average"=>1, "vote_count"=> 1, 'type' => 1, 'userRate' => 1,
             "year"=> 1, "release_date"=> 1, "first_air_date" => 1, 'userFollow' => 1, "next_episode_to_air"=> 1,
-            'rank' => 1, 'popularity'=> 1, 'rating' => 1];
+            'rank' => 1, 'popularity'=> 1, 'rating' => 1, 'updated_at' => 1];
     }
 
     public function addLimitPipeline(int $limit = 30, int $page = 1)
@@ -82,8 +84,32 @@ abstract class AbstractShowService implements Service
         return [['$limit' => $limit], ['$skip'=> $skip]];
     }
 
-    public function addSortPipeline(string $property)
+    public function addEpisodeShowName()
     {
+        $query = [];
+        $query[] = ['$lookup' => ['from' => 'movies', 'localField' => 'show_id', 'foreignField' => 'id', 'as' => 'showDocument']];
+        $query[] = ['$addFields' => [
+            'showp' => [
+                '$filter' => [
+                    'input'=> '$showDocument',
+                    'as' => 'item',
+                    'cond' => ['$eq' => ['$$item.type', 'tvshow']]
+                ]
+            ]
+        ]];
+        $query[] = ['$unwind' => ['path' => '$showp']];
+        $query[] = ['$addFields' => ['show' => ['name' => '$showp.name',
+            'popularity' => '$showp.popularity','_id' => '$showp._id', 'type' => '$showp.type','poster_path' => '$showp.poster_path']]];
+        $query[] = ['$project' => [ 'showDocument' => 0, 'showp' => 0]];
+
+        return $query;
+    }
+
+    public function addSortPipeline(?string $property)
+    {
+        if(is_null($property)) {
+            return [[]];
+        }
         return [['$sort'=> [$property => -1]]];
     }
 

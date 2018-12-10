@@ -106,7 +106,7 @@ class EntityManager
             return $this->insert($document,$collection);
         }
 
-        return $this->update(["_id"=> $document["id"]], ['$set'=> $document], 'movies');
+        return $this->update(["_id"=> $document["id"]], ['$set'=> $document], $collection);
     }
 
     public function insertMany(array $documents, string $collection)

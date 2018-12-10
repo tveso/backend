@@ -40,7 +40,7 @@ class ExceptionListener implements EventSubscriberInterface
     public function onKernelException(GetResponseForExceptionEvent $event)
     {
         $exception = $event->getException();
-        $this->logger->alert($exception->getMessage());
+        $this->logger->alert($exception);
         $data = $this->getMesage($exception) ;
         $response = new JsonResponse(json_encode($data), $data["code"], [], true);
         $response->setMaxAge(0);

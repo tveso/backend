@@ -18,6 +18,7 @@ class User extends Entity implements UserInterface, \JsonSerializable
     private $password;
     private $email;
     private $enabled;
+    private $avatar;
     private $accountNonExpired;
     private $credentialsNonExpired;
     private $accountNonLocked;
@@ -49,7 +50,7 @@ class User extends Entity implements UserInterface, \JsonSerializable
         return get_object_vars($user);
     }
 
-    public static function fromArray(array $entity)
+    public static function fromArray($entity)
     {
         $user = new User('hola','ey');
         foreach ($entity as $key=>$value) {
@@ -299,6 +300,26 @@ class User extends Entity implements UserInterface, \JsonSerializable
         $this->username = $username;
         return $this;
     }
+
+    /**
+     * @return mixed
+     */
+    public function getAvatar()
+    {
+        return $this->avatar;
+    }
+
+    /**
+     * @param mixed $avatar
+     * @return User
+     */
+    public function setAvatar($avatar)
+    {
+        $this->avatar = $avatar;
+        return $this;
+    }
+
+
 
 
 }

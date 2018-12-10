@@ -9,9 +9,11 @@ namespace App\Jobs\UpdateTmdbJobs;
 
 use App\EntityManager;
 use App\Jobs\UpdateSearchFieldJob;
+use App\Services\FindService;
 use App\Services\TheMovieDb\TheMovieDbClient;
 use App\Services\TheMovieDb\TmdbTvShowService;
 use MongoDB\UpdateResult;
+use Symfony\Component\Stopwatch\Stopwatch;
 
 
 class UpdateTvShowsJob
@@ -60,7 +62,10 @@ class UpdateTvShowsJob
     private function formatTvshowBeforeUpdate(array $entity)
     {
         $entity['updated_at'] = (new \DateTime('now'))->format('Y-m-d');
-
+        if(isset($entity['first_air_date'])){
+            $entity['year'] = explode("-",$entity['first_air_date'])[0];
+        }
+        $entity['release_date'] = $entity['first_air_date'];
         return $entity;
     }
 
@@ -89,6 +94,14 @@ class UpdateTvShowsJob
     }
 
 
+    public function formatEpisodeBeforeUpdate($episode, $season)
+    {
+        $episode['season_poster_path'] = $season['poster_path'];
+        $episode["season_id"] = $season['id'];
+
+        return $episode;
+    }
+
     public function getLatestTvshows()
     {
         $lastId = $this->entityManager->findOneBy(['type'=> 'tvshow'], 'movies', ['sort'=> ['id'=> -1]]);
@@ -106,6 +119,7 @@ class UpdateTvShowsJob
                 continue;
             }
             $tvShowDetails = $this->updateSeasons($tvShowDetails);
+            $tvShowDetails = $this->formatTvshowBeforeUpdate($tvShowDetails);
             $this->insertOrUpdate($tvShowDetails);
             echo "Insertada serie {$tvShowDetails["name"]}\n";
             $this->updateSearchField($imdb_id);
@@ -155,6 +169,7 @@ class UpdateTvShowsJob
             for($i = 0;$i<sizeof($tmdbData["seasons"]);$i++){
                 try{
                     $actualSeason = $this->getSeason($tmdbData["id"], $firstSeason+$i);
+                    $this->updateSeasonEpisodes($actualSeason, $tmdbData);
                 } catch (\Exception $e){
                     continue;
                 }
@@ -201,5 +216,25 @@ class UpdateTvShowsJob
         $tvDetails["type"] = 'tvshow';
 
         $this->entityManager->insertOfUpdate($tvDetails, 'movies');
+    }
+
+    private function storeEpisode($episode)
+    {
+        $episode["_id"] = $episode["id"];
+        $episode["type"] = 'episode';
+        $episode['updated_at'] = (new \DateTime('now'))->format('Y-m-d');
+        $episode = FindService::bsonArrayToArray($episode);
+        echo "Guardando episodio...\n";
+        $this->entityManager->insertOfUpdate($episode, 'episodes');
+    }
+
+    private function updateSeasonEpisodes($season, $show)
+    {
+        foreach ($season['episodes'] as $episode){
+            $episode = $this->formatEpisodeBeforeUpdate($episode, $season);
+            $episode['show'] = ['name' => $show['name']];
+            $this->storeEpisode($episode);
+        }
+        unset($season['episodes']);
     }
 }

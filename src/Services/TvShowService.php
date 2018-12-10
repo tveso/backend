@@ -68,8 +68,7 @@ class TvShowService extends AbstractShowService
         $query['_id'] = $id;
         $query['pipelines'] = array_merge($this->addLimitPipeline(1, 1), $this->addUserRatingPipeLine($this->user->getId()),
             $this->addFollowPipeLine($this->user->getId()));
-        $result = $this->findService->allCached($query);
-        $result = $this->showService->setUserDataIntoShows($result);
+        $result = $this->showService->setUserDataIntoShows([["_id" => $id]],  [['$project' => ['seasons.episodes' => 0]]]);
         if(isset($result[0])) return $result[0];
         return ["_id"=> null];
     }
@@ -101,8 +100,7 @@ class TvShowService extends AbstractShowService
     private function updateEpisodeScore($episode, $episodeBd)
     {
         if(!isset($episodeBd["rating"])) return $episode;
-            $episode["vote_average"] = $episodeBd["rating"]["averageRating"];
-            $episode["vote_count"] = $episodeBd["rating"]["numVotes"];
+            $episode['rating'] = $episodeBd['rating'];
             $episode["imdb_id"] = $episodeBd["_id"];
 
         return $episode;
@@ -115,22 +113,59 @@ class TvShowService extends AbstractShowService
         return $data;
     }
 
+    public function getTvShowsSeasonEpisodes(int $id, int $number)
+    {
+        $userId = $this->user->getId();
+        $this->setEpisodesIfNotExisted($id, $number);
+        $pipeline =
+            [
+                ['$match' => ['show_id' => $id, 'season_number' => $number]],
+                ['$sort' => ['episode_number' => 1, '_id' => 1]]
+            ];
+        $pipeline = array_merge($pipeline, $this->addFollowPipeLine($userId, 'id'), $this->addUserRatingPipeLine($userId, 'id'));
+        $entities = $this->entityManager->aggregate($pipeline, [], 'episodes');
 
-    public function upcoming()
+        $data = FindService::bsonArrayToArray($entities);
+
+        return $data;
+    }
+
+
+    public function upcoming(int $limit = 30, $page = 1 )
     {
         $date = new \DateTime('now');
         $numDaysMonth = cal_days_in_month(CAL_GREGORIAN, intval($date->format('m')),
             intval($date->format('Y')));
-        $query = ["page"=> 1, "type"=>"tvshow",
-            "dateEpisode"=> ">={$date->format("Y-m-01")};<={$date->format("Y-m-$numDaysMonth")}"];
-        $query['pipelines'] = [['$limit' => 50], ['$project'=> ['_id'=> 1]], ['$sort' => ['next_episode_to_air.air_date' => 1]]];
-        $query['pipe_order'] = ['$match' =>5, '$sort' => 4, '$project' => 3];
-        $result = $this->findService->all($query, 'movies', 60*60*24);
-        $pipelines =array_merge([['$sort' => ['next_episode_to_air.air_date' => 1]]], $this->getProjection());
-        $result = $this->showService->setUserDataIntoShows($result,  $pipelines, false);
-        return $result;
+        $opts = ["dateEpisode"=> ">={$date->format("Y-m-01")};<={$date->format("Y-m-$numDaysMonth")}"];
+        $date = new \DateTime('now');
+        $opts['pipelines'] = array_merge([['$match'=> ['type' => 'tvshow',
+            'next_episode_to_air.air_date' => $date->format('Y-m-d')]]],
+            $this->addSortPipeline('popularity'), $this->addLimitPipeline($limit, $page),
+            $this->getProjection(),$this->addUserRatingPipeLine($this->user->getId()),
+            $this->addFollowPipeLine($this->user->getId()));
+        $opts['pipe_order'] = ['$match' => 6, '$sort' => 4,'$project' => 3];
+        $data = $this->findService->all($opts, 'movies');
+
+        return $data;
     }
 
+    public function onAir(int $limit = 30, int $page = 1)
+    {
+        $date = new \DateTime('now');
+        $opts['pipelines'] = array_merge([['$match'=> ['type' => 'tvshow',
+            'next_episode_to_air.air_date' => $date->format('Y-m-d')]]],
+            $this->addSortPipeline('popularity'), $this->addLimitPipeline($limit, $page),
+            $this->getProjection(),$this->addUserRatingPipeLine($this->user->getId()),
+            $this->addFollowPipeLine($this->user->getId()));
+        $opts['pipe_order'] = ['$match' => 6, '$sort' => 4,'$project' => 3];
+        $data = $this->findService->all($opts, 'movies');
+
+        return $data;
+    }
+
+    private function setEpisodesIfNotExisted(string $id, int $number)
+    {
+    }
 
 
 }

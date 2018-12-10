@@ -8,6 +8,7 @@ namespace App\Jobs;
 
 
 use App\EntityManager;
+use MongoDB\BSON\ObjectId;
 use Symfony\Component\Stopwatch\Stopwatch;
 
 class ImdbRatingsJob
@@ -24,6 +25,29 @@ class ImdbRatingsJob
     {
 
         $this->entityManager = $entityManager;
+    }
+
+    public function updateBdEpisodeFields()
+    {
+        $query = ['type' => 'tvshow', 'seasons.episodes._id' => ['$exists' => false]];
+        $shows = $this->entityManager->find($query, 'movies', ['sort' => ['popularity' => -1]]);
+        foreach ($shows as $ks=>$show) {
+            foreach ($show['seasons'] as $kss=>$season) {
+                try{
+                foreach ($season['episodes'] as $ke=>$episode) {
+                    try{
+                        $show['seasons'][$kss]['episodes'][$ke]['_id'] = new ObjectId();
+                    } catch (\Exception $e){
+                        continue;
+                    }
+                }
+                } catch (\Exception $e){
+                    continue;
+                }
+            }
+            $this->entityManager->replace($show, 'movies');
+            echo "{$show['name']} Actualizada\n";
+        }
     }
 
 
@@ -51,6 +75,7 @@ class ImdbRatingsJob
                 }
             } catch (\Exception $e){
                 dump($e->getMessage());
+
                 continue;
             }
             break;
@@ -92,13 +117,12 @@ class ImdbRatingsJob
         return $this;
     }
 
-    public function importToMongo(): self
+    public function importToMongo($collection = 'imdbratings', $filename = 'dumps.tsv'): self
     {
         echo "Importing to mongo...\n";
-        $collection = 'imdbratings';
         $this->dropCollection($collection);
         $db = 'mymoviedb';
-        $uploadfile =  self::DUMPS_PATHS."/dumps.tsv";
+        $uploadfile =  self::DUMPS_PATHS."/".$filename;
         $command = "mongoimport --db $db --collection " . $collection . " --file " . $uploadfile ." --type tsv --headerline" ;
 
         shell_exec($command);

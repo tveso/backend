@@ -58,7 +58,6 @@ class UpdateMoviesJob
     public function updateByTMdbDates(?string $startDate, ?string $endDate)
     {
         $changes = $this->changes($startDate, $endDate);
-        var_dump(sizeof($changes));
         foreach ($changes as $key=>$movie){
             $id = $movie["id"];
             try{
@@ -143,6 +142,9 @@ class UpdateMoviesJob
     {
         $query = ["_id" => $imdb_id];
         $movieDetails["updated_at"] = (new \DateTime('now'))->format('Y-m-d');
+        if(isset($movieDetails['release_date']) && is_string($movieDetails['release_date'])){
+            $entity['year'] = explode("-",$movieDetails['release_date'])[0];
+        }
         $updateData = ['$set'=> $movieDetails];
         $movieDetails["_id"] = $imdb_id;
         return $this->entityManager->update($query, $updateData,'movies', ['upsert' => true]);

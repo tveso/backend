@@ -64,11 +64,13 @@ class FindController extends AbstractController
         $query = $request->query->get('query');
         $limit = $request->query->get('limit') ?? 10;
         $page = $request->query->get('page') ?? 1;
+        $full = $request->query->get('full');
+        $full = filter_var($full, FILTER_VALIDATE_BOOLEAN);
         $limit = intval($limit);
         $page = intval($page);
-        $data = $this->searchService->search($query,$limit,$page);
+        $data = $this->searchService->search($query,$limit,$page, $full);
 
-        return $this->jsonResponse($data);
+        return $this->json($data);
     }
 
 

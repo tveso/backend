@@ -8,6 +8,7 @@ namespace App\Util;
 
 
 
+use App\Jobs\UpdateSearchFieldJob;
 use MongoDB\BSON\Regex;
 
 class FindQueryBuilder
@@ -36,7 +37,9 @@ class FindQueryBuilder
         'limit' => null,
         'gender' => 'inArray',
         'place_of_birth' => 'setPlaceOfBirth',
-        'released_shows' => 'getReleasedShows'
+        'released_shows' => 'getReleasedShows',
+        'text' => 'searchByText',
+        'patterntext' => 'searchByRegex'
     ];
     /**
      * @var PipelineBuilder\PipelineBuilder
@@ -93,6 +96,19 @@ class FindQueryBuilder
             $mathpipe->setValue(['gender' => ['$in' => $value]]);
         }
     }
+
+    public function searchByRegex($value) {
+        $value = UpdateSearchFieldJob::prepareString($value);
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue(['search_title' => ['$in' => [$value]]]);
+    }
+
+    public function searchByText($value) {
+        $value = UpdateSearchFieldJob::prepareString($value);
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue(['$text' => ['$search'=>$value]]);
+    }
+
 
 
     private function getGenres($value)

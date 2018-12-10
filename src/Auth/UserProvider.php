@@ -95,6 +95,7 @@ class UserProvider implements UserProviderInterface
         $userDao = new User($user["username"], $user["password"], $roles, $user['enabled'], $user['accountNonExpired'],
             $user['credentialsNonExpired'], $user['accountNonLocked'], $user['email'], []);
         $userDao->setId($user["_id"]);
+        $userDao->setAvatar($user['avatar']);
 
         return $userDao;
     }
