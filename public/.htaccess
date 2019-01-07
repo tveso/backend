@@ -10,7 +10,7 @@ Order Allow,Deny
 Deny from All
 </Files>
 
-RewriteCond %{REQUEST_URI} !(\.css|\.js|\.png|\.jpg|\.gif|\.yaml|robots\.txt|\.log)$ [NC]
+RewriteCond %{REQUEST_URI} !(\.css|\.jpeg|\.js|\.png|\.jpg|\.gif|\.yaml|robots\.txt|\.log)$ [NC]
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^(.*)$ index.php

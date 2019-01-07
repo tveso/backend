@@ -63,8 +63,8 @@ class CalendarController extends AbstractController
      */
     public function getEpisodesBetweenDates(Request $request)
     {
-        $minDate = $request->query->get('min_date') ;
-        $maxDate = $request->query->get('max_date') ;
+        $minDate = $request->query->get('min_date');
+        $maxDate = $request->query->get('max_date');
         if (is_null($minDate) or is_null($maxDate)) {
             throw new ValidatorException();
         }
@@ -73,6 +73,31 @@ class CalendarController extends AbstractController
         return $this->jsonResponse($data);
     }
 
+
+    /**
+     * @Route("/tvshowsepisodes", name="tvshowsepisodes")
+     * @param Request $request
+     * @return object|\Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
+     */
+    public function getTvshowsEpisodesBetweenDates(Request $request)
+    {
+        $minDate = $request->query->get('min_date');
+        $maxDate = $request->query->get('max_date');
+        $include = $request->query->get('include');
+        if (is_null($minDate) or is_null($maxDate) or is_null($include)) {
+            throw new ValidatorException();
+        }
+        if(!is_array($include)) {
+            $include = [$include];
+        }
+        $include = array_map(function ($a) {
+            return intval($a);
+        }, $include);
+        $data = $this->calendarService->getTvshowsEpisodesFrom($include, $minDate, $maxDate);
+
+        return $this->jsonResponse($data);
+    }
 
 
 }

@@ -32,8 +32,8 @@ class FindQueryBuilder
         'famous' => 'getFamous',
         'duration' => 'getDuration',
         'pipelines' => 'addPipelines',
-        'sort'=>'addSortPipeline',
-        'page' => 'addPage',
+        'sort'=>null,
+        'page' =>null,
         'limit' => null,
         'gender' => 'inArray',
         'place_of_birth' => 'setPlaceOfBirth',
@@ -55,7 +55,7 @@ class FindQueryBuilder
     public function build()
     {
         foreach ($this->params as $key=>$value){
-            if(in_array($key, ['opts', 'pipe_order'])) continue;
+            if(in_array($key, ['opts', 'pipe_order', 'nav', 'page', 'limit', 'sort'])) continue;
             if(isset($this->executors[$key])){
                 $executor = $this->executors[$key];
                 if(method_exists($this, $executor)){
@@ -294,7 +294,7 @@ class FindQueryBuilder
                 if($value==='') continue;
                 $operator = $this->getOperator($value);
                 $date = $matches['number'][$key];
-                $field = ($this->params['type']==='movie') ? 'release_date' : 'first_air_date';
+                $field = $this->getDateField($this->params['type']);
                 $result[$field][$operator] = $date;
             }
             }
@@ -341,6 +341,18 @@ class FindQueryBuilder
         }
 
         return [];
+    }
+
+    private function getDateField($type)
+    {
+        switch($type) {
+            case 'tvshow':
+                return 'first_air_date';
+            case 'movie':
+                return 'release_date';
+            case 'episode':
+                return 'air_date';
+        }
     }
 
 }

@@ -97,10 +97,12 @@ abstract class AbstractShowService implements Service
                 ]
             ]
         ]];
-        $query[] = ['$unwind' => ['path' => '$showp']];
+        $query[] = ['$unwind' => ['path' => '$showp', 'preserveNullAndEmptyArrays' => true]];
         $query[] = ['$addFields' => ['show' => ['name' => '$showp.name',
-            'popularity' => '$showp.popularity','_id' => '$showp._id', 'type' => '$showp.type','poster_path' => '$showp.poster_path']]];
-        $query[] = ['$project' => [ 'showDocument' => 0, 'showp' => 0]];
+            'popularity' => '$showp.popularity','_id' => '$showp._id', 'id'=>'$showp.id', 'type' => '$showp.type',
+            'poster_path' => '$showp.poster_path', 'rating' => '$showp.rating', "vote_average"=>'$showp.vote_average',
+            "vote_count"=> '$showp.vote_count']]];
+        $query[] = ['$addFields' => [ 'showDocument' => null, 'showp' => null]];
 
         return $query;
     }

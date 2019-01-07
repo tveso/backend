@@ -121,5 +121,18 @@ class CalendarService extends AbstractShowService
         return FindService::bsonArrayToArray($data);
     }
 
+    public function getTvshowsEpisodesFrom(array $include, $minDate, $maxDate)
+    {
+        $query = [];
+        $query[] = ['$match' => ['air_date' => ['$gte' => $minDate, '$lte' => $maxDate], 'show_id' => ['$in' => $include]]];
+        $userDataPipeline = array_merge($this->addEpisodeShowName(),$this->addUserRatingPipeLine($this->user->getId()),
+            $this->addFollowPipeLine($this->user->getId()));
+        $pipeline = array_merge($query, $userDataPipeline);
+        $pipeline[] = ['$sort' => ['show.popularity' => -1]];
+        $data = $this->entityManager->aggregate($pipeline, [], 'episodes');
+
+        return FindService::bsonArrayToArray($data);
+    }
+
 
 }

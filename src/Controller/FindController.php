@@ -85,7 +85,7 @@ class FindController extends AbstractController
         $options = $request->query->all();
         $data = $this->showService->filter($options);
 
-        return $this->jsonResponseCached($data, $request);
+        return $this->json($data);
     }
 
 

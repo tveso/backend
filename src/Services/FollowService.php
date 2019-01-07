@@ -16,6 +16,7 @@ use App\Util\FindQueryBuilder;
 use App\Util\PipelineBuilder\PipelineBuilder;
 use MongoDB\BSON\ObjectId;
 use MongoDB\Operation\Find;
+use Symfony\Component\ExpressionLanguage\Tests\Node\Obj;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
 use Symfony\Component\Validator\Exception\InvalidArgumentException;
 use Symfony\Component\Validator\Exception\ValidatorException;
@@ -70,13 +71,17 @@ class FollowService extends AbstractShowService
      */
     public function follow(string $id, ?string $mode, string $type)
     {
-        $type = $this->checkShowExists($id);
+        if ($type === 'list') {
+            $id = new ObjectId($id);
+        }
+        $type = $this->checkResourceExists($id, $type);
         if($type === 'movie') {
             $this->checkValidMode($mode, Movie::FOLLOW_MODES);
         }
         if($type === 'tvshow') {
             $this->checkValidMode($mode, TvShow::FOLLOW_MODES);
         }
+
         $mode = strtolower($mode);
         $values = $this->updateShowFollowState($id, $mode, $type);
 
@@ -103,9 +108,14 @@ class FollowService extends AbstractShowService
      * @return
      * @throws \Exception
      */
-    private function checkShowExists(string $id)
+    private function checkResourceExists($id, $type)
     {
-        $entities = $this->entityManager->find(["_id" => $id], 'movies')->toArray();
+        $mtype = $type;
+        $mtype.='s';
+        if ($type === 'tvshow') {
+            $mtype = 'movies';
+        }
+        $entities = $this->entityManager->find(["_id" => $id], $mtype)->toArray();
         if(empty($entities)){
             throw new \Exception("$id tvshow was not found");
         }

@@ -38,12 +38,15 @@ services:
         class: 'GuzzleHttp\Client'
     App\Services\:
       resource: '../src/Services'
+    App\Pipelines\:
+      resource: '../src/Pipelines'
       public: true
     App\Controller\:
         resource: '../src/Controller'
         tags: ['controller.service_arguments']
     App\Auth\:
       resource: '../src/Auth'
+    App\Services\Storage\StorageService: '@App\Services\Storage\FileStorage'
     Aws\S3\S3Client:
       class: 'Aws\S3\S3Client'
       arguments:

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Auth\UserService;
 use App\EntityManager;
 use App\Jobs\UpdateSearchFieldJob;
+use App\Services\TheMovieDb\TmdbEpisodeService;
 use App\Util\FindQueryBuilder;
 use App\Util\PipelineBuilder\PipelineBuilder;
 use InvalidArgumentException;
@@ -41,6 +42,10 @@ class EpisodeService extends AbstractShowService
      * @var FindService
      */
     private $findService;
+    /**
+     * @var TmdbEpisodeService
+     */
+    private $episodeService;
 
     /**
      * FindService constructor.
@@ -48,15 +53,17 @@ class EpisodeService extends AbstractShowService
      * @param UserService $userService
      * @param CacheService $cacheService
      * @param FindService $findService
+     * @param TmdbEpisodeService $episodeService
      */
     public function __construct(EntityManager $entityManager, UserService $userService, CacheService $cacheService,
-                                FindService $findService)
+                                FindService $findService, TmdbEpisodeService $episodeService)
     {
         $this->entityManager = $entityManager;
         $this->user = $userService->getUser();
         $this->userService = $userService;
         $this->cacheService = $cacheService;
         $this->findService = $findService;
+        $this->episodeService = $episodeService;
     }
 
     public function findPendingEpisodes($limit = 30, $page = 1)
@@ -89,24 +96,31 @@ class EpisodeService extends AbstractShowService
             'as' => 'episodes'
             ],
         ];
+        $today = (new \DateTime())->format('Y-m-d');
         $query[] = ['$addFields' => [
             'episodesFiltered' => [
                 '$filter' => [
                     'input' => '$episodes',
                     'as' => 'item',
                     'cond' => [
-                        '$or'=> [
+                        '$and' => [
+                        ['$or'=> [
                             ['$gt' =>['$$item.season_number', '$episode.season_number'] ],
                             ['$and' => [
-                                ['$eq' => ['$item.season_number', '$episode.season_number']],
-                                ['$gt' => ['$item.episode_number', '$episode.episode_number']]
-                            ]]
+                                ['$eq' => ['$$item.season_number', '$episode.season_number']],
+                                ['$gt' => ['$$item.episode_number', '$episode.episode_number']]
+                            ]
+                            ]
+                        ]
+                        ],
+                            ['$gte' => [$today, '$$item.air_date']],
+                            ['$ne' => ['$$item.air_date', null]]
                         ]
                     ]
                 ]
             ]
         ]];
-        $query[] = ['$unwind' => ['path' => '$episodesFiltered', 'preserveNullAndEmptyArrays' => true]];
+        $query[] = ['$unwind' => ['path' => '$episodesFiltered', 'preserveNullAndEmptyArrays' => false]];
         $query[] = ['$replaceRoot' => ['newRoot' => '$episodesFiltered']];
         $query[] = ['$project' => [  'crew' =>0, 'cast' => 0]];
         $query[] = ['$sort' => ['season_number' => 1, 'episode_number'=> 1]];
@@ -119,6 +133,7 @@ class EpisodeService extends AbstractShowService
         $query = array_merge($query,  $this->addEpisodeShowName());
         $data = $this->entityManager->aggregate($query,[], 'follows');
         $data = FindService::bsonArrayToArray($data);
+
         return $data;
     }
 
@@ -169,6 +184,124 @@ class EpisodeService extends AbstractShowService
         $result = $this->findService->all($pipelines,'follows');
 
         return $result;
+    }
+
+    public function get(string $id)
+    {
+        $id = intval($id);
+        $userId = $this->user->getId();
+        $pipeline['pipelines'] = [['$match' => ['_id' => $id]]];
+        $userDataPipeline = array_merge($this->addUserRatingPipeLine($userId),
+            $this->addFollowPipeLine($userId));
+        $pipeline['pipelines']  = array_merge( $pipeline['pipelines'],
+            $userDataPipeline,
+            $this->addBeforeEpisode(),
+            $this->addEpisodeShowName());
+        $pipeline['pipelines'][]['$project'] = ['showp'=> 0, 'showDocument' => 0];
+        $pipeline['pipelines'] = array_merge($pipeline['pipelines'],  $this->addNextEpisodePipe());
+        $result = $this->findService->all($pipeline,'episodes');
+        if(empty($result)) {
+            return [];
+        }
+        $result = $result[0];
+        $result = $this->updateCredits($result);
+
+        return $result;
+    }
+
+    public function addNextEpisodePipe()
+    {
+        $query[] = ['$lookup' => [
+            'from' => 'episodes',
+            'let' => ['sid' => '$show_id', 'sn' => '$season_number', 'en' => '$episode_number'],
+            'pipeline' => [
+                ['$match' =>
+                ['$expr' =>[
+                    '$and' => [
+                        ['$or'=> [
+                            ['$gt' =>['$season_number', '$$sn'] ],
+                            ['$and' => [
+                                ['$eq' => ['$season_number', '$$sn']],
+                                ['$gt' => ['$episode_number', '$$en']]
+                            ]
+                            ]
+                        ]
+                        ],
+                        ['$eq' => ['$show_id', '$$sid']]
+                        ]
+                ]
+                ]
+                ],
+                ['$sort' => ['season_number' => 1, 'episode_number' => 1]],
+                ['$project' => ['season_number' => 1, 'episode_number' => 1, 'still_path' => 1, 'show_id' => 1,
+                    '_id' => 1]]
+            ],
+            'as' => 'next_episode'
+        ],
+        ];
+        $query[] = ['$addFields' => ['next_episode' => [
+            '$arrayElemAt' => ['$next_episode', 0]
+        ]]];
+
+        return $query;
+    }
+    public function addBeforeEpisode()
+    {
+        $query[] = ['$lookup' => [
+            'from' => 'episodes',
+            'let' => ['sid' => '$show_id', 'sn' => '$season_number', 'en' => '$episode_number'],
+            'pipeline' => [
+                ['$match' =>
+                    ['$expr' =>[
+                        '$and' => [
+                            ['$eq' => ['$show_id', '$$sid']],
+                            ['$or'=> [
+                                ['$lt' =>['$season_number', '$$sn'] ],
+                                ['$and' => [
+                                    ['$eq' => ['$season_number', '$$sn']],
+                                    ['$lt' => ['$episode_number', '$$en']]
+                                ]
+                                ]
+                            ]
+                            ],
+
+                        ]
+                    ]
+                    ]
+                ],
+                ['$sort' => ['season_number' => -1, 'episode_number' => -1]],
+                ['$limit' => 1],
+                ['$project' => ['season_number' => 1, 'episode_number' => 1, 'still_path' => 1, 'show_id' => 1,
+                    '_id' => 1]]
+            ],
+            'as' => 'before_episode'
+        ],
+        ];
+        $query[] = ['$addFields' => ['before_episode' => [
+            '$arrayElemAt' => ['$before_episode', 0]
+        ]]];
+
+        return $query;
+    }
+
+    private function updateCredits(array $episode)
+    {
+        if(isset($episode['credits'])) {
+            return $episode;
+        }
+        try{
+            $episode['credits'] = $this->episodeService->credits(
+                $episode['show']['id'],
+                $episode['season_number'],
+                $episode['episode_number']);
+            $this->entityManager->update(['_id' => $episode['_id']], ['$set' => ['credits' => $episode['credits']]],
+                'episodes');
+        } catch (\Exception $exception) {
+            $episode['credits'] = ['cast' => [], 'crew' => []];
+            return $episode;
+        }
+
+        return $episode;
     }
 
 }

@@ -139,13 +139,13 @@ class UserService
         $exception = new UserRegistrationException();
         $emailSearch = $this->entityManager->findOneBy(["email"=> $email], 'users');
         $usernameSearch = $this->entityManager->findOneBy(['username' => $username], 'users');
-        if(!is_null($emailSearch)){
+        if(!!is_null($emailSearch)){
             $exception->addError('La dirección de email está en uso.');
         }
-        if(is_null($usernameSearch)) {
+        if(!is_null($usernameSearch)) {
             $exception->addError('El nombre de usuario está en uso.');
         }
-        if(is_null($usernameSearch) or is_null($emailSearch)) {
+        if(!is_null($usernameSearch) or !is_null($emailSearch)) {
             throw $exception;
         }
     }

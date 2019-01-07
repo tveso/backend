@@ -4,6 +4,7 @@
 namespace App\Services;
 
 
+use App\Services\Storage\StorageService;
 use Aws\Sdk;
 use Symfony\Component\HttpFoundation\File\File;
 
@@ -12,10 +13,14 @@ class ImageService extends AbstractShowService
 {
 
     private $sdk;
+    /**
+     * @var StorageService
+     */
+    private $storageService;
 
-    public function __construct(Sdk $sdk)
+    public function __construct(StorageService $storageService)
     {
-        $this->sdk = $sdk;
+        $this->storageService = $storageService;
     }
 
     public function checkDimensions(File $file, array $dimensionsAssert)
@@ -43,21 +48,7 @@ class ImageService extends AbstractShowService
         if(!file_exists($filePath)) {
             throw new \Exception();
         }
-        $keyName = 'avatars/'.basename($fileName);
-        $s3Client = $this->sdk->createS3();
-        try{
-            $s3Client->putObject(
-                [
-                    'Bucket' => 'tveso',
-                    'Key' => $keyName,
-                    'ContentType'  => mime_content_type($filePath),
-                    'SourceFile' => $filePath,
-                    'ACL' => 'public-read'
-                ]
-            );
-        } catch (\Exception $e) {
-            throw new \Exception();
-        }
+        $this->storageService->upload($filePath, $fileName);
     }
 
     /**
@@ -68,20 +59,6 @@ class ImageService extends AbstractShowService
      */
     public function uploadFromBody(string $avatar, $imageContent, string $contentType)
     {
-        $keyName = 'avatars/'.basename($avatar);
-        $s3Client = $this->sdk->createS3();
-        try{
-            $s3Client->putObject(
-                [
-                    'Bucket' => 'tveso',
-                    'Key' => $keyName,
-                    'ContentType'  => $contentType,
-                    'Body' => $imageContent,
-                    'ACL' => 'public-read'
-                ]
-            );
-        } catch (\Exception $e) {
-            throw $e;
-        }
+        $this->storageService->uploadFromBody($avatar, $imageContent, $contentType);
     }
 }
