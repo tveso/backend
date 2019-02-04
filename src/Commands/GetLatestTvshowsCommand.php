@@ -48,10 +48,11 @@ class GetLatestTvshowsCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         try{
-            $this->updateTvShowsJob->getLatestTvshows();
+            //$this->updateTvShowsJob->getLatestTvshows();
+            $this->updateTvShowsJob->updateTvshowsEpisodes();
         } catch (\Exception $e){
-            echo $e->getMessage()."\n";
-            $this->logger->error($e->__toString());
+            echo $e."\n";
+            $this->logger->error($e);
         }
 
     }

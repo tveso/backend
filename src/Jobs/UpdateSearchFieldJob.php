@@ -85,7 +85,7 @@ class UpdateSearchFieldJob
         $string =mb_strtolower($string, 'UTF-8');
         $chars = "',:#@|!¿?=)(/&%\$·`´*'- .";
         $chars = str_split($chars);
-        $replace= [["á","a"],["é","e"],["í","i"],["ó","o"],["ú","u"], ['ç','s']];
+        $replace= [["á","a"],["é","e"],["í","i"],["ó","o"],["ú","u"], ['ç','s'], ['ñ','n']];
         foreach ($chars as $c){
             $string = str_replace($c,"",$string);
         }

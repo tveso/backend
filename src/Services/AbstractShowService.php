@@ -81,7 +81,7 @@ abstract class AbstractShowService implements Service
     public function addLimitPipeline(int $limit = 30, int $page = 1)
     {
         $skip = ($page- 1)*$limit;
-        return [['$limit' => $limit], ['$skip'=> $skip]];
+        return [['$skip' => $skip], ['$limit'=> $limit]];
     }
 
     public function addEpisodeShowName()

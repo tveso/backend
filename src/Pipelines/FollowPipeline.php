@@ -35,4 +35,21 @@ class FollowPipeline extends AbstractPipeline
             ]]];
     }
 
+    public function filter($userId, $modes, $name)
+    {
+        return [
+            ['$match' => ['user' => new ObjectId($userId), 'mode' => ['$in' => $modes]]],
+            ['$sort' => ['updated_at' => -1]],
+            ['$lookup' =>
+                [
+                    'from' => $name,
+                    'localField' => 'show',
+                    'foreignField' => '_id',
+                    'as' => $name
+                ]],
+            ['$unwind' => ['path' => '$'.$name]],
+            ['$addFields' => [$name.'updated_at' => '$updated_at']],
+            ['$replaceRoot' => ['newRoot' => '$'.$name]],
+        ];
+    }
 }

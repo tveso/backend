@@ -130,7 +130,6 @@ class EpisodeService extends AbstractShowService
         ]]];
         $query[] = ['$replaceRoot' => ['newRoot' => '$episode']];
         $query[] = ['$project' => [  'episodes.crew' =>0, 'episodes.cast' => 0]];
-        $query = array_merge($query,  $this->addEpisodeShowName());
         $data = $this->entityManager->aggregate($query,[], 'follows');
         $data = FindService::bsonArrayToArray($data);
 
@@ -195,8 +194,8 @@ class EpisodeService extends AbstractShowService
             $this->addFollowPipeLine($userId));
         $pipeline['pipelines']  = array_merge( $pipeline['pipelines'],
             $userDataPipeline,
-            $this->addBeforeEpisode(),
-            $this->addEpisodeShowName());
+            $this->addBeforeEpisode()
+           );
         $pipeline['pipelines'][]['$project'] = ['showp'=> 0, 'showDocument' => 0];
         $pipeline['pipelines'] = array_merge($pipeline['pipelines'],  $this->addNextEpisodePipe());
         $result = $this->findService->all($pipeline,'episodes');

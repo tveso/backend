@@ -12,6 +12,7 @@ use App\Auth\UserService;
 use App\Entity\Movie;
 use App\Entity\TvShow;
 use App\EntityManager;
+use App\Pipelines\PipelineFactory;
 use App\Util\FindQueryBuilder;
 use App\Util\PipelineBuilder\PipelineBuilder;
 use MongoDB\BSON\ObjectId;
@@ -148,44 +149,22 @@ class FollowService extends AbstractShowService
     /**
      * @param array $opts
      * @return array
+     * @throws \Exception
      */
     public function getUserFollowsShows(array $opts = []): array
     {
         if(!isset($opts['user'])) {
             throw new InvalidArgumentException();
         }
+        $modes = explode(',', $opts['mode']);
         $userId = $opts['user'];
-        $mode = ($opts['mode']) ?? 'pending';
-        $limit = min(($opts["limit"]) ?? 30,100);
-        unset($opts['mode']);
-        unset($opts['user']);
-        unset($opts['limit']);
-        $mode = explode(",", $mode);
-        $page = ($opts["page"]) ?? 1;
-        $sort = $opts["sort"] ?? null;
-        $opts['pipelines'] = array_merge($this->addLimitPipeline($limit, $page), $this->addSortPipeline($sort),
-            $this->getProjection());
-        $pb = new FindQueryBuilder($opts);
-        $showPipelines = $pb->build();
-        $pipelines['pipelines'] = [
-            ['$match' => ['user' => new ObjectId($userId), 'mode' => ['$in' => $mode]]],
-            ['$sort' => ['updated_at' => -1]],
-            ['$lookup' =>
-                [
-                    'from' => 'movies',
-                    'localField' => 'show',
-                    'foreignField' => '_id',
-                    'as' => 'shows'
-                ]],
-            ['$unwind' => ['path' => '$shows']],
-            ['$addFields' => ['shows.updated_at' => '$updated_at']],
-            ['$replaceRoot' => ['newRoot' => '$shows']],
-        ];
-        $userDataPipeline = array_merge($this->addUserRatingPipeLine($this->user->getId()),
-            $this->addFollowPipeLine($this->user->getId()));
-        $pipelines['pipelines'] = array_merge($pipelines['pipelines'], $showPipelines, $userDataPipeline);
-        $pipelines["pipe_order"] = ['$project' => -5];
-        $result = $this->findService->all($pipelines,'follows');
+        $pipelineFactory = new PipelineFactory([]);
+        $pipelineFactory->add('follow', ['filter' , [$userId, $modes, 'movies']])->add('common', ['filter', [$opts]])
+            ->add('movie', 'project')
+            ->add('common', ['follow', [$userId]], ['rating', [$userId]]);
+        $pipelines = $pipelineFactory->getPipeline();
+        $result = $this->entityManager->aggregate($pipelines, [],'follows');
+        $result = FindService::bsonArrayToArray($result);
 
         return $result;
     }
@@ -262,10 +241,33 @@ class FollowService extends AbstractShowService
         $type = 'tvshow';
         $data = $this->entityManager->findOneBy(['user'=> $this->user->getId(), 'show' => $id, 'type' => $type], 'follows');
         if(is_null($data)){
-            $this->follow($id, 'following', '');
+            $this->follow($id, 'following', $type);
             return;
         }
         return;
+    }
+
+
+    /**
+     * @param array $opts
+     * @return array
+     * @throws \Exception
+     */
+    public function getUserFollowLists(array $opts = []): array
+    {
+        if(!isset($opts['user'])) {
+            throw new InvalidArgumentException();
+        }
+        $modes = ['following'];
+        $userId = $opts['user'];
+        $pipelineFactory = new PipelineFactory([]);
+        $pipelineFactory->add('follow', ['filter' , [$userId, $modes, 'lists']])->add('common', ['filter', [$opts]])
+            ->add('common', ['follow', [$userId]]);
+        $pipelines = $pipelineFactory->getPipeline();
+        $result = $this->entityManager->aggregate($pipelines, [],'follows');
+        $result = FindService::bsonArrayToArray($result);
+
+        return $result;
     }
 
 }

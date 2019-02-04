@@ -6,9 +6,11 @@
 
 namespace App\Controller;
 use App\Form\ListForm;
+use App\Services\CommentsService;
 use App\Services\ListService;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\ParamConverter;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\Routing\Annotation\Route;
 
 /**
@@ -21,11 +23,16 @@ class ListController extends AbstractController
      * @var ListService
      */
     private $listService;
+    /**
+     * @var CommentsService
+     */
+    private $commentsService;
 
-    public function __construct(ListService $listService)
+    public function __construct(ListService $listService,  CommentsService $commentsService)
     {
 
         $this->listService = $listService;
+        $this->commentsService = $commentsService;
     }
 
 
@@ -33,10 +40,11 @@ class ListController extends AbstractController
      * @Route("/all", name="all")
      * @param Request $request
      * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
      */
     public function list(Request $request)
     {
-        $result = $this->listService->all($request->request->all());
+        $result = $this->listService->all($request->query->all());
 
         return $this->jsonResponse($result);
     }
@@ -56,16 +64,29 @@ class ListController extends AbstractController
     }
 
     /**
-     * @Route("/edit", name="edit",  methods={"POST"})
+     * @Route("/user/{id}", name="getUserLists")
+     * @param string $id
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
+     */
+    public function getUserLists($id, Request $request)
+    {
+        $result = $this->listService->userLists($id, $request->query->all());
+
+        return $this->jsonResponse($result);
+    }
+    /**
+     * @Route("/{id}/edit", name="edit",  methods={"POST"})
      * @param ListForm $list
      * @return \Symfony\Component\HttpFoundation\JsonResponse
      * @ParamConverter("list", converter="class")
      */
-    public function edit(ListForm $list)
+    public function edit($id, ListForm $list)
     {
-        $this->listService->edit($list);
+        $data = $this->listService->edit($id, $list);
 
-        return $this->okResponse();
+        return $this->jsonResponse($data);
     }
 
 
@@ -75,6 +96,7 @@ class ListController extends AbstractController
     public function get(string $id)
     {
         $result = $this->listService->get($id);
+        $result['comments'] = $this->commentsService->getAll($result["_id"]['$oid']);
 
         return $this->jsonResponse($result);
     }
@@ -85,7 +107,7 @@ class ListController extends AbstractController
      */
     public function getMovies(string $id, Request $request)
     {
-        $result = $this->listService->getShows($id, $request->query->all(), 'movies');
+        $result = $this->listService->getShows($id, $request->query->all());
 
         return $this->jsonResponse($result);
     }
@@ -104,6 +126,19 @@ class ListController extends AbstractController
         return $this->jsonResponse($result);
     }
     /**
+     * @Route("/{id}/delete", name="delete")
+     * @param string $id
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
+     */
+    public function delete(string $id)
+    {
+        $result = $this->listService->delete($id);
+
+        return $this->okResponse();
+    }
+    /**
      * @Route("/{id}/people", name="getPeople")
      * @param string $id
      * @param Request $request
@@ -116,4 +151,38 @@ class ListController extends AbstractController
 
         return $this->jsonResponse($result);
     }
+    /**
+     * @Route("/{id}/episodes", name="getEpisodes")
+     * @param string $id
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
+     */
+    public function getEpisodes(string $id, Request $request)
+    {
+        $result = $this->listService->getEpisodes($id, $request->query->all());
+
+        return $this->jsonResponse($result);
+    }
+
+    /**
+     * @Route("/{listId}/add", name="addToList")
+     * @param string $id
+     * @param Request $request
+     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
+     */
+    public function addToList($listId, Request $request)
+    {
+        $resourceId = $request->get('resource');
+        $resourceType = $request->get('type');
+        if (is_null($resourceId) or is_null($resourceType)) {
+            throw new BadRequestHttpException();
+        }
+        $result = $this->listService->addToList($resourceId, $listId, $resourceType);
+
+        return $this->jsonResponse($result);
+    }
+
+
 }

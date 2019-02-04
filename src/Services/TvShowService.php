@@ -12,6 +12,7 @@ use App\Auth\UserService;
 use App\Entity\Entity;
 use App\Entity\TvShow;
 use App\EntityManager;
+use App\Pipelines\PipelineFactory;
 use App\Util\FindQueryBuilder;
 use MongoDB\BSON\ObjectId;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -113,20 +114,27 @@ class TvShowService extends AbstractShowService
         return $data;
     }
 
+    /**
+     * @param int $id
+     * @param int $number
+     * @return mixed
+     * @throws \Exception
+     */
     public function getTvShowsSeasonEpisodes(int $id, int $number)
     {
         $userId = $this->user->getId();
-        $this->setEpisodesIfNotExisted($id, $number);
+
         $pipeline =
             [
                 ['$match' => ['show_id' => $id, 'season_number' => $number]],
                 ['$sort' => ['episode_number' => 1, '_id' => 1]]
             ];
-        $pipeline = array_merge($pipeline, $this->addFollowPipeLine($userId, 'id'), $this->addUserRatingPipeLine($userId, 'id'));
+        $pf = new PipelineFactory($pipeline);
+        $pf->add('common', ['follow', [$userId, 'id']], ['rating', [$userId, 'id']], 'show');
+        $pipeline = $pf->getPipeline();
         $entities = $this->entityManager->aggregate($pipeline, [], 'episodes');
 
         $data = FindService::bsonArrayToArray($entities);
-
         return $data;
     }
 
@@ -163,9 +171,6 @@ class TvShowService extends AbstractShowService
         return $data;
     }
 
-    private function setEpisodesIfNotExisted(string $id, int $number)
-    {
-    }
 
 
 }

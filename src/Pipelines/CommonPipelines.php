@@ -15,7 +15,7 @@ class CommonPipelines extends AbstractPipeline
     public function limit(int $limit = 30, int $page = 1)
     {
         $skip = ($page- 1)*$limit;
-        return [['$limit' => $limit], ['$skip'=> $skip]];
+        return [['$skip' => $skip], ['$limit'=> $limit]];
     }
 
     public function sort(string $property, int $mode = -1)
@@ -71,12 +71,24 @@ class CommonPipelines extends AbstractPipeline
     }
 
     /**
+     * @param bool $value
+     * @return array|mixed
+     */
+    public function nondeleted()
+    {
+        return [['$match' => ['$or' =>  [['deleted' => ['$exists' => false]],['deleted' => false]]]]];
+    }
+
+    /**
      * @param array $opts
      * @param $userId
      * @return array|mixed
      */
     public function filter(array $opts)
     {
+        unset($opts['mode']);
+        unset($opts['user']);
+        unset($opts['limit']);
         $page = ($opts["page"]) ?? 1;
         $limit = min(($opts["limit"]) ?? 30,100);
         $sort = ($opts["sort"]) ?? 'popularity';

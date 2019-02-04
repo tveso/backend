@@ -39,7 +39,8 @@ class FindQueryBuilder
         'place_of_birth' => 'setPlaceOfBirth',
         'released_shows' => 'getReleasedShows',
         'text' => 'searchByText',
-        'patterntext' => 'searchByRegex'
+        'patterntext' => 'searchByRegex',
+        'search' => 'searchByIndex'
     ];
     /**
      * @var PipelineBuilder\PipelineBuilder
@@ -106,9 +107,13 @@ class FindQueryBuilder
     public function searchByText($value) {
         $value = UpdateSearchFieldJob::prepareString($value);
         $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
-        $matchPipe->setValue(['$text' => ['$search'=>$value]]);
+        $matchPipe->setValue(['$or' => [['$text' => ['$search'=>$value, '$diacriticSensitive' => true]],
+            ]]);
     }
-
+    public function searchByIndex($value) {
+        $matchPipe = $this->pipelineBuilder->getPipe('$match', []);
+        $matchPipe->setValue(['$text' => ['$search'=>$value, '$diacriticSensitive' => true]]);
+    }
 
 
     private function getGenres($value)

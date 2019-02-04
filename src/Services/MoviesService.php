@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Auth\UserService;
 use App\EntityManager;
+use App\Pipelines\PipelineFactory;
 use App\Util\FindQueryBuilder;
 use Doctrine\Common\Cache\MongoDBCache;
 use Symfony\Component\Security\Core\Authentication\Token\Storage\TokenStorageInterface;
@@ -68,16 +69,17 @@ class MoviesService extends AbstractShowService
     /**
      * @param int $limit
      * @return array
+     * @throws \Exception
      */
     public function popular(int $limit = 30)
     {
-        $query['type'] = 'movie';
-        $query['sort'] = 'popularity';
-        $query['pipelines'] = $this->addLimitPipeline($limit);
-        $data = $this->findService->allCached($query,'movies', 60*60*24);
-        $pipelines = array_merge([['$sort' => ['popularity' => -1]]], $this->getProjection());
-        $result = $this->showService->setUserDataIntoShows($data, $pipelines);
-        return $result;
+        $fb = new PipelineFactory([]);
+        $fb->add('common', ['filter', [['type' => 'movie']]],['sort', ['popularity']], ['limit', [30, 1]])
+        ->add('movie', 'project');
+        $pipeline = $fb->getPipeline();
+        $data = $this->entityManager->aggregate($pipeline, [], 'movies');
+        $data =FindService::bsonArrayToArray($data);
+        return $data;
     }
 
     public function upcoming()

@@ -25,7 +25,7 @@ class ListPipeline extends AbstractPipeline
 
     public function movies()
     {
-        $query[] = ['$addFields' => ['tvshows' => ['$slice' => ['$tvshows', 0, 20]]]];
+        $query[] = ['$addFields' => ['tvshows' => ['$slice' => ['$tvshows', 0, 100]]]];
         $query[] = ['$lookup' => [
             'from' => 'movies',
             'localField' => 'movies',
@@ -37,7 +37,7 @@ class ListPipeline extends AbstractPipeline
 
     public function tvshows()
     {
-        $query[] = ['$addFields' => ['tvshows' => ['$slice' => ['$tvshows', 0, 20]]]];
+        $query[] = ['$addFields' => ['tvshows' => ['$slice' => ['$tvshows', 0, 100]]]];
         $query[] = ['$lookup' => [
             'from' => 'movies',
             'localField' => 'tvshows',
@@ -49,7 +49,7 @@ class ListPipeline extends AbstractPipeline
 
     public function people()
     {
-        $query[] = ['$addFields' => ['people' => ['$slice' => ['$people', 0, 20]]]];
+        $query[] = ['$addFields' => ['people' => ['$slice' => ['$people', 0, 100]]]];
         $query[] = ['$lookup' => [
             'from' => 'people',
             'localField' => 'people',
@@ -60,7 +60,7 @@ class ListPipeline extends AbstractPipeline
     }
     public function episodes()
     {
-        $query[] = ['$addFields' => ['episodes' => ['$slice' => ['$episodes', 0, 20]]]];
+        $query[] = ['$addFields' => ['episodes' => ['$slice' => ['$episodes', 0, 100]]]];
         $query[] = ['$lookup' => [
             'from' => 'episodes',
             'localField' => 'episodes',

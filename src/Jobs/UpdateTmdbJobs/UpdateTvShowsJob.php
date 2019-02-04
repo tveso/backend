@@ -102,6 +102,28 @@ class UpdateTvShowsJob
         return $episode;
     }
 
+    public function updateTvshowsEpisodes()
+    {
+        $shows = $this->entityManager->find(["type" => 'tvshow', 'show.poster_path' => ['$exists' => false]],'movies');
+        foreach ($shows as $show) {
+            try{
+                $this->updateTvshowEpisodes($show);
+            } catch (\Exception $e){
+                echo $e;
+                continue;
+            }
+
+        }
+    }
+
+    public function updateTvshowEpisodes( $show)
+    {
+        $this->entityManager->update(["show_id" => $show['id']], ['$unset' => ['show' =>'']],'episodes');
+        $this->entityManager->update(["show_id" => $show['id']], ['$set' => ['show' => ['_id' => $show["_id"], "id" => $show["id"],
+            "poster_path" => $show['poster_path'], 'name' => $show['name']]]],'episodes');
+        echo "Actualizado {$show["name"]}\n";
+    }
+
     public function getLatestTvshows()
     {
         $lastId = $this->entityManager->findOneBy(['type'=> 'tvshow'], 'movies', ['sort'=> ['id'=> -1]]);
@@ -171,6 +193,7 @@ class UpdateTvShowsJob
                     $actualSeason = $this->getSeason($tmdbData["id"], $firstSeason+$i);
                     $this->updateSeasonEpisodes($actualSeason, $tmdbData);
                 } catch (\Exception $e){
+                    echo $e->getMessage();
                     continue;
                 }
                 $tmdbData["seasons"][$i] = $actualSeason;
@@ -232,7 +255,8 @@ class UpdateTvShowsJob
     {
         foreach ($season['episodes'] as $episode){
             $episode = $this->formatEpisodeBeforeUpdate($episode, $season);
-            $episode['show'] = ['name' => $show['name']];
+            $episode['show'] = ['name' => $show['name'], 'id' => $show['id'], '_id' => $show['external_ids']['imdb_id'],'poster_path' =>
+            $show['poster_path']];
             $this->storeEpisode($episode);
         }
         unset($season['episodes']);

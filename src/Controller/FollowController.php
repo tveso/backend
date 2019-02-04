@@ -44,6 +44,18 @@ class FollowController extends AbstractController
         $data = $this->followService->getUserFollowsShows($opts);
         return $this->jsonResponse($data);
     }
+    /**
+     * @Route("/lists", name="lists")
+     * @param Request $request
+     * @return object|\Symfony\Component\HttpFoundation\JsonResponse
+     * @throws \Exception
+     */
+    public function lists(Request $request)
+    {
+        $opts = $request->query->all();
+        $data = $this->followService->getUserFollowLists($opts);
+        return $this->jsonResponse($data);
+    }
 
     /**
      * @Route("/episode", name="watchepisode")
@@ -63,6 +75,7 @@ class FollowController extends AbstractController
         return $this->json($data);
     }
 
+
     /**
      * @Route("/{id}", name="follow")
      * @param Request $request
@@ -77,8 +90,6 @@ class FollowController extends AbstractController
         $this->followService->follow($id, $mode, $type);
         return $this->okResponse();
     }
-
-
 
 
 
